@@ -19,6 +19,17 @@ test('offline preview is clickable, resets stay disabled, and settings change la
     const toggle = overlay.locator('#toggle-expanded');
     await expect(toggle).toBeVisible();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    if (process.platform === 'win32') {
+      // CDP clicks can reach a renderer even when the native HWND is disabled.
+      // Assert the OS-facing window policy as well as the DOM interactions.
+      expect(
+        await app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()
+            .find((window) => window.webContents.getURL().endsWith('/index.html'))
+            ?.isFocusable(),
+        ),
+      ).toBe(true);
+    }
     await expect(overlay.locator('.header-percent')).toHaveText('72%');
     const existingButton = await toggle.elementHandle();
     const unchanged = await overlay.evaluate(() => window.quota.getState());

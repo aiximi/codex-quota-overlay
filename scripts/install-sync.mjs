@@ -77,7 +77,22 @@ export function launchAgentXML({ label, repo, metadata, node, script }) {
 `;
 }
 
-export function windowsTaskScript({ label, repo, node, script, uninstall }) {
+/** Both the scheduler host and Node run hidden; logs remain inside Git metadata. */
+export function windowsRunnerScript({ repo, node, script, metadata }) {
+  return `$ErrorActionPreference = 'Stop'
+$arguments = @{
+  FilePath = ${ps(node)}
+  ArgumentList = ${ps(`${windowsArgument(script)} --watch`)}
+  WorkingDirectory = ${ps(repo)}
+  RedirectStandardOutput = ${ps(path.win32.join(metadata, 'stdout.log'))}
+  RedirectStandardError = ${ps(path.win32.join(metadata, 'stderr.log'))}
+}
+$process = Start-Process @arguments -WindowStyle Hidden -Wait -PassThru
+exit $process.ExitCode
+`;
+}
+
+export function windowsTaskScript({ label, repo, node, script, metadata, powershell, uninstall }) {
   const header = `$ErrorActionPreference = 'Stop'\n$taskName = ${ps(label)}\n`;
   if (uninstall)
     return `${header}
@@ -86,9 +101,13 @@ if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
   Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
 }
 `;
+  const runner = Buffer.from(
+    windowsRunnerScript({ repo, node, script, metadata }),
+    'utf16le',
+  ).toString('base64');
   return `${header}
 $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-$action = New-ScheduledTaskAction -Execute ${ps(node)} -Argument ${ps(`${windowsArgument(script)} --watch`)} -WorkingDirectory ${ps(repo)}
+$action = New-ScheduledTaskAction -Execute ${ps(powershell)} -Argument ${ps(`-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand ${runner}`)} -WorkingDirectory ${ps(repo)}
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $identity
 $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
@@ -138,10 +157,6 @@ async function main() {
       await command('launchctl', ['bootstrap', domain, plist], repo);
     }
   } else if (process.platform === 'win32') {
-    const encoded = Buffer.from(
-      windowsTaskScript({ label, repo, node, script: serviceRunner, uninstall }),
-      'utf16le',
-    ).toString('base64');
     const powershell = path.join(
       process.env.SystemRoot || 'C:\\Windows',
       'System32',
@@ -149,6 +164,18 @@ async function main() {
       'v1.0',
       'powershell.exe',
     );
+    const encoded = Buffer.from(
+      windowsTaskScript({
+        label,
+        repo,
+        node,
+        script: serviceRunner,
+        metadata,
+        powershell,
+        uninstall,
+      }),
+      'utf16le',
+    ).toString('base64');
     await command(
       powershell,
       ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],

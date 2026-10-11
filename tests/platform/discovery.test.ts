@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, chmod, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, chmod, mkdir, realpath, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -7,6 +7,7 @@ import {
   discoveryCandidates,
   isNativeHeader,
   validateExecutable,
+  windowsDesktopCandidates,
 } from '../../src/main/platform/discovery.js';
 
 test('macOS searches foreground app resources before standard installations', () => {
@@ -40,6 +41,7 @@ test('Windows follows the app path and finds native npm packages, never .cmd wra
     appPath: 'C:\\Apps\\Codex\\Codex.exe',
   });
   assert.equal(candidates[0], 'C:\\Apps\\Codex\\resources\\codex.exe');
+  assert.ok(candidates.includes('C:\\Local\\OpenAI\\Codex\\bin\\codex.exe'));
   assert.ok(
     candidates.includes(
       'C:\\Roaming\\npm\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\codex\\codex.exe',
@@ -47,6 +49,68 @@ test('Windows follows the app path and finds native npm packages, never .cmd wra
   );
   assert.equal(candidates.filter((candidate) => candidate === 'C:\\Tools\\codex.exe').length, 1);
   assert.ok(candidates.every((candidate) => candidate.endsWith('.exe')));
+});
+
+test('Windows desktop discovery follows updated version folders before the stale fallback', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'quota-desktop-discovery-'));
+  const bin = path.join(directory, 'OpenAI', 'Codex', 'bin');
+  const older = path.join(bin, 'c60635126245daef', 'codex.exe');
+  const current = path.join(bin, '8e5b6932251c2c1c', 'codex.exe');
+  const fallback = path.join(bin, 'codex.exe');
+  try {
+    for (const file of [older, current, fallback]) {
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, Buffer.from('4d5a9000', 'hex'));
+    }
+    await utimes(older, 1_000, 1_000);
+    await utimes(current, 2_000, 2_000);
+    // Even a touched fallback must not mask the desktop app's current version.
+    await utimes(fallback, 3_000, 3_000);
+    await mkdir(path.join(bin, 'incomplete-download'));
+    await writeFile(path.join(bin, 'unrelated.txt'), 'ignored');
+    assert.deepEqual(await windowsDesktopCandidates(directory), [current, older, fallback]);
+
+    const updated = path.join(bin, 'next-version', 'codex.exe');
+    await mkdir(path.dirname(updated));
+    await writeFile(updated, Buffer.from('4d5a9000', 'hex'));
+    assert.equal((await windowsDesktopCandidates(directory))[0], updated);
+    assert.equal(await validateExecutable(updated, 'win32'), await realpath(updated));
+
+    await rm(current);
+    assert.deepEqual(await windowsDesktopCandidates(directory), [updated, older, fallback]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('Windows MSIX app hints never replace the runnable desktop CLI with protected package assets', () => {
+  const options = {
+    platform: 'win32' as const,
+    architecture: 'x64',
+    home: 'C:\\Users\\example',
+    env: { LOCALAPPDATA: 'C:\\Local' },
+  };
+  const withoutHint = discoveryCandidates(options);
+  for (const appPath of [
+    'C:\\Program Files\\WindowsApps\\OpenAI.Codex_1.0.0_x64__example\\app\\ChatGPT.exe',
+    'D:/WINDOWSAPPS/OpenAI.Codex_1.0.0_x64__example/app/ChatGPT.exe',
+  ]) {
+    const withHint = discoveryCandidates({ ...options, appPath });
+    assert.deepEqual(withHint, withoutHint);
+    assert.ok(withHint.includes('C:\\Local\\OpenAI\\Codex\\bin\\codex.exe'));
+    assert.ok(!withHint.some((candidate) => /WindowsApps/iu.test(candidate)));
+  }
+});
+
+test('Windows desktop discovery tolerates a missing installation', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'quota-no-desktop-'));
+  try {
+    assert.deepEqual(await windowsDesktopCandidates(directory), [
+      path.join(directory, 'OpenAI', 'Codex', 'bin', 'codex.exe'),
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test('native file signatures reject shell and JavaScript wrappers', () => {

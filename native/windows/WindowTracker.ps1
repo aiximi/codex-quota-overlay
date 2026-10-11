@@ -28,14 +28,22 @@ public static class CodexWindowGeometry {
 }
 '@
 
-function Get-CodexFrame {
-    $window = [CodexWindowGeometry]::GetForegroundWindow()
-    if ($window -eq [IntPtr]::Zero -or
-        -not [CodexWindowGeometry]::IsWindowVisible($window) -or
-        [CodexWindowGeometry]::IsIconic($window)) { return @{ visible = $false } }
+function Get-WindowProcessId {
+    param([IntPtr]$Window)
 
     [uint32]$windowProcessId = 0
-    [void][CodexWindowGeometry]::GetWindowThreadProcessId($window, [ref]$windowProcessId)
+    [void][CodexWindowGeometry]::GetWindowThreadProcessId($Window, [ref]$windowProcessId)
+    return $windowProcessId
+}
+
+function Get-CodexWindowFrame {
+    param([IntPtr]$Window)
+
+    if ($Window -eq [IntPtr]::Zero -or
+        -not [CodexWindowGeometry]::IsWindowVisible($Window) -or
+        [CodexWindowGeometry]::IsIconic($Window)) { return @{ visible = $false } }
+
+    $windowProcessId = Get-WindowProcessId -Window $Window
     $targetProcess = Get-Process -Id $windowProcessId -ErrorAction Stop
     $executable = $targetProcess.MainModule.FileName
     $fileName = [System.IO.Path]::GetFileName($executable)
@@ -50,7 +58,7 @@ function Get-CodexFrame {
     # DWMWA_EXTENDED_FRAME_BOUNDS (9) is in physical pixels and excludes the
     # invisible resizing border. The Electron host converts this to DIP.
     $result = [CodexWindowGeometry]::DwmGetWindowAttribute(
-        $window, 9, [ref]$bounds, [System.Runtime.InteropServices.Marshal]::SizeOf($bounds))
+        $Window, 9, [ref]$bounds, [System.Runtime.InteropServices.Marshal]::SizeOf($bounds))
     if ($result -ne 0) { return @{ visible = $false } }
     $width = $bounds.Right - $bounds.Left
     $height = $bounds.Bottom - $bounds.Top
@@ -62,6 +70,36 @@ function Get-CodexFrame {
         appPath = $executable
     }
 }
+
+$script:TrackedWindow = [IntPtr]::Zero
+
+function Get-CodexFrame {
+    param([IntPtr]$ForegroundWindow = [CodexWindowGeometry]::GetForegroundWindow())
+
+    $window = $ForegroundWindow
+    $windowProcessId = Get-WindowProcessId -Window $window
+    # Clicking a focusable Windows overlay transfers foreground ownership from
+    # Codex to our Electron main process. Keep the last verified Codex HWND while
+    # our own UI is active, or the next poll would hide it during the click.
+    # An unrelated foreground app always breaks this association.
+    if ($ParentProcessId -gt 0 -and $windowProcessId -eq $ParentProcessId) {
+        $window = $script:TrackedWindow
+    }
+
+    try {
+        # Revalidate every poll: a remembered HWND can be closed, minimized, or
+        # reused, and the host may move while the overlay has keyboard focus.
+        $frame = Get-CodexWindowFrame -Window $window
+    }
+    catch { $frame = @{ visible = $false } }
+
+    if ($frame.visible) { $script:TrackedWindow = $window }
+    else { $script:TrackedWindow = [IntPtr]::Zero }
+    return $frame
+}
+
+# Allow the selection policy to be loaded without launching the polling loop.
+if ($MyInvocation.InvocationName -eq '.') { return }
 
 $lastJson = ''
 $lastEmission = [DateTime]::MinValue

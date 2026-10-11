@@ -1,5 +1,5 @@
 import { constants } from 'node:fs';
-import { access, open, realpath, stat } from 'node:fs/promises';
+import { access, open, readdir, realpath, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -41,8 +41,15 @@ export function discoveryCandidates(options: DiscoveryEnvironment): string[] {
     }
   } else if (platform === 'win32') {
     const local = env.LOCALAPPDATA || paths.join(home, 'AppData', 'Local');
+    // MSIX package resources can be readable native binaries but cannot be
+    // launched by an unpackaged process. The desktop app copies its runnable
+    // CLI to the per-user OpenAI/Codex/bin folder discovered below.
+    const foregroundRoot =
+      appPath && /\.exe$/iu.test(appPath) && !/[\\/]WindowsApps[\\/]/iu.test(appPath)
+        ? [paths.dirname(appPath)]
+        : [];
     const appRoots = [
-      ...(appPath && /\.exe$/iu.test(appPath) ? [paths.dirname(appPath)] : []),
+      ...foregroundRoot,
       paths.join(local, 'Programs', 'Codex'),
       paths.join(local, 'Programs', 'codex'),
       paths.join(local, 'Codex'),
@@ -53,6 +60,9 @@ export function discoveryCandidates(options: DiscoveryEnvironment): string[] {
       add(root, 'resources', 'codex-cli', 'codex.exe');
       add(root, 'resources', 'codex-cli', 'bin', 'codex.exe');
     }
+    // The Windows desktop app keeps its CLI outside the MSIX application.
+    // discoverCLI expands this fallback into the current versioned binaries.
+    add(local, 'OpenAI', 'Codex', 'bin', 'codex.exe');
   }
 
   const triple =
@@ -109,6 +119,41 @@ export function discoveryCandidates(options: DiscoveryEnvironment): string[] {
     seen.add(key);
     return true;
   });
+}
+
+/** Inspect only the desktop app's managed bin folder, never unrelated directories. */
+export async function windowsDesktopCandidates(localAppData: string): Promise<string[]> {
+  const bin = path.join(localAppData, 'OpenAI', 'Codex', 'bin');
+  const fallback = path.join(bin, 'codex.exe');
+  try {
+    const entries = await readdir(bin, { withFileTypes: true });
+    const versioned = await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory())
+        .map(async (entry) => {
+          const candidate = path.join(bin, entry.name, 'codex.exe');
+          try {
+            const info = await stat(candidate);
+            return info.isFile() ? { candidate, modified: info.mtimeMs } : null;
+          } catch {
+            // Updates may create or remove a version while discovery is running.
+            return null;
+          }
+        }),
+    );
+    // A desktop update can leave the unversioned binary behind. Prefer the
+    // newest version and inspect afresh on every discovery, so hash changes
+    // require neither a stored path nor an overlay reinstall.
+    return [
+      ...versioned
+        .filter((entry) => entry !== null)
+        .sort((a, b) => b.modified - a.modified || a.candidate.localeCompare(b.candidate))
+        .map((entry) => entry.candidate),
+      fallback,
+    ];
+  } catch {
+    return [fallback];
+  }
 }
 
 /** Mach-O/PE/ELF signatures distinguish the real executable from npm wrappers. */
@@ -177,6 +222,14 @@ export async function discoverCLI(
     env: process.env,
     ...(appPath ? { appPath } : {}),
   });
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
+    const managed = await windowsDesktopCandidates(localAppData);
+    const fallbackIndex = candidates.indexOf(
+      path.join(localAppData, 'OpenAI', 'Codex', 'bin', 'codex.exe'),
+    );
+    candidates.splice(fallbackIndex, 1, ...managed);
+  }
   for (const candidate of candidates) {
     const executable = await validateExecutable(candidate);
     if (executable) return executable;

@@ -30,6 +30,8 @@ let tray: Tray | null = null;
 let host: Frame | null = null;
 let quitting = false;
 let interval: ReturnType<typeof setInterval> | undefined;
+let positionSaveTimer: ReturnType<typeof setTimeout> | undefined;
+let positionSavePending = false;
 let ready = false;
 let lastBroadcast = '';
 const projectURL = 'https://github.com/aiximi/codex-quota-overlay';
@@ -61,6 +63,17 @@ function rendererFile(name: string): string {
   return join(__dirname, '../renderer', name);
 }
 
+function flushWindowsPosition(): void {
+  clearTimeout(positionSaveTimer);
+  positionSaveTimer = undefined;
+  if (!positionSavePending) return;
+  positionSavePending = false;
+  // Read the latest offset so a position reset cannot be overwritten by an
+  // older drag. saveOffset retains the existing storage error reporting.
+  const { x, y } = quota.state.settings.offset;
+  quota.saveOffset(x, y);
+}
+
 function createOverlay(): BrowserWindow {
   const window = new BrowserWindow({
     width: 276,
@@ -72,7 +85,10 @@ function createOverlay(): BrowserWindow {
     resizable: false,
     minimizable: false,
     maximizable: false,
-    focusable: false,
+    // Windows needs a focusable HWND for native mouse/keyboard input. Keep the
+    // macOS nonactivating panel unchanged; showInactive still avoids stealing
+    // focus when the Windows overlay first appears.
+    focusable: process.platform === 'win32',
     skipTaskbar: true,
     alwaysOnTop: true,
     hasShadow: true,
@@ -100,11 +116,21 @@ function createOverlay(): BrowserWindow {
   });
   window.on('will-move', (_event, bounds) => {
     if (!host) return;
-    quota.saveOffset(
-      host.bounds.x + host.bounds.width - bounds.x - bounds.width,
-      bounds.y - host.bounds.y,
-    );
+    const x = host.bounds.x + host.bounds.width - bounds.x - bounds.width;
+    const y = bounds.y - host.bounds.y;
+    if (process.platform === 'win32') {
+      // Keep tracking aligned during a drag without fsync/rename on every
+      // mouse move, which blocks Electron's main thread on Windows.
+      quota.state.settings = { ...quota.state.settings, offset: { x, y } };
+      positionSavePending = true;
+      clearTimeout(positionSaveTimer);
+      positionSaveTimer = setTimeout(flushWindowsPosition, 400);
+      positionSaveTimer.unref();
+    } else {
+      quota.saveOffset(x, y);
+    }
   });
+  if (process.platform === 'win32') window.on('moved', flushWindowsPosition);
   void window.loadFile(rendererFile('index.html'));
   return window;
 }
@@ -344,6 +370,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   quitting = true;
   clearInterval(interval);
+  if (process.platform === 'win32') flushWindowsPosition();
   tracker?.stop();
   quota?.close();
   tray?.destroy();

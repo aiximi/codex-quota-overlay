@@ -12,6 +12,7 @@ export interface ConsumeResetRequest {
 
 export interface ClientOptions {
   timeoutMs?: number;
+  platform?: NodeJS.Platform;
   spawn?: (
     executable: string,
     args: string[],
@@ -48,6 +49,7 @@ export class CodexClient {
   private stopped = false;
   private cancel: (() => void) | null = null;
   private readonly timeoutMs: number;
+  private readonly platform: NodeJS.Platform;
   private readonly spawnChild: NonNullable<ClientOptions['spawn']>;
 
   constructor(
@@ -55,6 +57,7 @@ export class CodexClient {
     options: ClientOptions = {},
   ) {
     this.timeoutMs = options.timeoutMs ?? 25_000;
+    this.platform = options.platform ?? process.platform;
     this.spawnChild =
       options.spawn ??
       ((file, args, env) =>
@@ -68,7 +71,13 @@ export class CodexClient {
 
   async readLimits(): Promise<QuotaSnapshot> {
     return parseQuota(
-      await this.request('account/rateLimits/read', { excludeResetCreditDetails: false }),
+      await this.request(
+        'account/rateLimits/read',
+        // The Windows desktop CLI defines this request as parameterless.
+        // An object is rejected before any quota is read. Preserve the existing
+        // macOS request shape, which supports explicit reset-credit details.
+        this.platform === 'win32' ? null : { excludeResetCreditDetails: false },
+      ),
     );
   }
 
@@ -112,7 +121,7 @@ export class CodexClient {
 
   private async request(
     method: string,
-    params: Record<string, unknown>,
+    params: Record<string, unknown> | null,
     validateAccount?: () => Promise<void>,
   ): Promise<Record<string, unknown>> {
     if (this.stopped) throw new Error('The quota service is closed.');
@@ -129,7 +138,7 @@ export class CodexClient {
 
   private exchange(
     method: string,
-    params: Record<string, unknown>,
+    params: Record<string, unknown> | null,
     validateAccount?: () => Promise<void>,
   ): Promise<Record<string, unknown>> {
     return new Promise((resolve, reject) => {

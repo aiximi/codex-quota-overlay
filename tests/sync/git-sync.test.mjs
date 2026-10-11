@@ -19,6 +19,7 @@ import {
   servicePath,
   serviceRunnerSource,
   windowsArgument,
+  windowsRunnerScript,
   windowsTaskScript,
 } from '../../scripts/install-sync.mjs';
 
@@ -284,10 +285,21 @@ test('installer quoting preserves spaces and metacharacters without shell execut
     repo: "C:\\O'Brien & Co",
     node: 'C:\\Node\\node.exe',
     script: "C:\\O'Brien & Co\\sync.mjs",
+    metadata: "C:\\O'Brien & Co\\.git\\quota-sync",
+    powershell: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
     uninstall: false,
   });
   assert.ok(task.includes("O''Brien & Co"));
   assert.ok(task.includes('-RunLevel Limited'));
+  assert.ok(task.includes('-WindowStyle Hidden'));
+  const launcher = Buffer.from(
+    task.match(/-EncodedCommand ([A-Za-z0-9+/=]+)/u)[1],
+    'base64',
+  ).toString('utf16le');
+  assert.ok(launcher.includes('-WindowStyle Hidden'));
+  assert.ok(launcher.includes('RedirectStandardOutput'));
+  assert.ok(launcher.includes('RedirectStandardError'));
+  assert.ok(launcher.includes("O''Brien & Co"));
   const plist = launchAgentXML({
     label: 'fixture',
     repo: '/example/A&B',
@@ -298,6 +310,50 @@ test('installer quoting preserves spaces and metacharacters without shell execut
   assert.ok(plist.includes('/example/A&amp;B'));
   assert.ok(plist.includes('<string>--watch</string>'));
 });
+
+test(
+  'Windows background launcher handles Unicode paths, captures logs and propagates failures',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "quota-sync 启动 O'Brien "));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const script = path.join(root, 'fixture.mjs');
+    await writeFile(
+      script,
+      "console.log('started'); console.error('fixture failure'); process.exitCode = 7;\n",
+    );
+    const launcher = windowsRunnerScript({
+      repo: root,
+      node: process.execPath,
+      script,
+      metadata: root,
+    });
+    const powershell = path.join(
+      process.env.SystemRoot || 'C:\\Windows',
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe',
+    );
+    const result = await command(
+      powershell,
+      [
+        '-NoLogo',
+        '-NoProfile',
+        '-NonInteractive',
+        '-WindowStyle',
+        'Hidden',
+        '-EncodedCommand',
+        Buffer.from(launcher, 'utf16le').toString('base64'),
+      ],
+      root,
+      { allowFailure: true },
+    );
+    assert.equal(result.code, 7);
+    assert.match(await readFile(path.join(root, 'stdout.log'), 'utf8'), /started/u);
+    assert.match(await readFile(path.join(root, 'stderr.log'), 'utf8'), /fixture failure/u);
+  },
+);
 
 test('service tool path restores Node and ignores relative/project dependency directories', () => {
   assert.equal(

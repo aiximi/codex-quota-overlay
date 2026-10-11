@@ -178,6 +178,9 @@ export class QuotaApplication {
       const manual = this.store.get<SubscriptionInfo>(`subscription.manual.${this.account}`);
       const cached = this.store.get<SubscriptionInfo>(`subscription.cached.${this.account}`);
       this.state.subscription = manual ?? (cached ? { ...cached, source: 'cached' } : null);
+      // Windows should display the quota as soon as the CLI replies. The
+      // optional subscription endpoint may take much longer to respond.
+      if (process.platform === 'win32') this.publish();
       if (forceSubscription || Date.now() - this.lastSubscription >= 900_000) {
         this.lastSubscription = Date.now();
         try {

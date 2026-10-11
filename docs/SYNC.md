@@ -54,14 +54,15 @@ npm run sync:resume
 
 ## 后台服务与本地状态
 
-macOS 使用当前用户的 LaunchAgent；Windows 使用当前用户、非管理员权限的计划任务。服务绑定安装时的项目目录和 Node 路径，移动项目或升级后删除了原 Node 路径时，应卸载后重新安装服务。
+macOS 使用当前用户的 LaunchAgent；Windows 使用当前用户、非管理员权限的计划任务。Windows 的启动器和 Node 均以隐藏窗口运行，不会在登录时留下命令行窗口；标准输出和错误保存在本地日志中。服务绑定安装时的项目目录和 Node 路径，移动项目或升级后删除了原 Node 路径时，应卸载后重新安装服务。
 
 后台服务会在 Git 元数据目录保存 Node、npm 和绝对工具目录的 PATH，以便登录环境中仍能运行检查与 Git 凭据助手。不会复制整个终端环境或保存访问令牌。请先使用 Git/IDEA 完成正常登录；如果网络必须使用代理，请在当前仓库的 Git 配置中设置 `http.proxy`，不要只依赖当前终端的 `HTTP_PROXY`。本地 Git 配置不会进入公开提交。
 
 运行状态、进程锁、npm 路径和日志保存在 Git 自身的 `quota-sync` 元数据目录中：普通仓库通常是 `.git/quota-sync/`，worktree 使用 Git 返回的对应元数据位置。这些文件不会被 Git 提交。
 
 - `state.json`：暂停状态、最近结果和网络重试时间。
-- `watch.log`：脱敏后的同步事件；macOS 另有 `stdout.log`、`stderr.log`。
+- `watch.log`：脱敏后的同步事件。
+- `stdout.log`、`stderr.log`：后台启动器的输出与错误；Windows 每次启动时重新创建，连续同步记录仍保存在 `watch.log`。
 - `lock.json`：当前同步进程。活跃进程持锁时，第二个实例不会启动。
 
 若断电恰好发生在创建锁期间，可能留下 `lock.claim`。先关闭所有同步进程并确认没有后台任务运行，再手动检查该文件；脚本不会猜测并删除可能属于活跃进程的锁。

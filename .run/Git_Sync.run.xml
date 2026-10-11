@@ -2,7 +2,9 @@
   <configuration default="false" name="Git Sync" type="js.build_tools.npm" factoryName="npm">
     <package-json value="$PROJECT_DIR$/package.json" />
     <command value="run" />
-    <scripts><script value="sync:watch" /></scripts>
+    <scripts>
+      <script value="sync:watch" />
+    </scripts>
     <node-interpreter value="project" />
     <envs />
     <method v="2" />

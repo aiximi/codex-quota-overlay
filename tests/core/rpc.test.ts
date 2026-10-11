@@ -9,7 +9,7 @@ import { childEnvironment, CodexClient, type ClientOptions } from '../../src/cor
 interface Message {
   id?: number;
   method?: string;
-  params?: Record<string, unknown>;
+  params?: Record<string, unknown> | null;
   error?: unknown;
 }
 
@@ -51,12 +51,12 @@ function fakeServer(handler: (message: Message, respond: (value: unknown) => voi
   };
 }
 
-test('read handshake enables current protocol capabilities and never sends a mutation', async () => {
+test('macOS read handshake preserves protocol capabilities and never sends a mutation', async () => {
   const server = fakeServer((message, respond) => {
     if (message.id === 1) respond({ id: 1, result: {} });
     if (message.id === 2) respond({ id: 2, result: { rateLimits: { planType: 'test' } } });
   });
-  const client = new CodexClient('fake', { spawn: server.spawn });
+  const client = new CodexClient('fake', { spawn: server.spawn, platform: 'darwin' });
   assert.equal((await client.readLimits()).planType, 'test');
   assert.deepEqual(
     server.messages.map((message) => message.method),
@@ -68,6 +68,29 @@ test('read handshake enables current protocol capabilities and never sends a mut
     explicitGatewayOauth: true,
   });
   assert.deepEqual(server.messages[2].params, { excludeResetCreditDetails: false });
+  client.close();
+});
+
+test('Windows reads the desktop CLI parameterless quota endpoint without a mutation', async () => {
+  const server = fakeServer((message, respond) => {
+    if (message.id === 1) respond({ id: 1, result: {} });
+    if (message.id === 2) {
+      if (message.params !== null)
+        respond({ id: 2, error: { code: -32600, message: 'Invalid request: expected null' } });
+      else
+        respond({
+          id: 2,
+          result: { rateLimits: { primary: { usedPercent: 12, windowDurationMins: 300 } } },
+        });
+    }
+  });
+  const client = new CodexClient('fake', { spawn: server.spawn, platform: 'win32' });
+  assert.equal((await client.readLimits()).windows[0].usedPercent, 12);
+  assert.deepEqual(
+    server.messages.map((message) => message.method),
+    ['initialize', 'initialized', 'account/rateLimits/read'],
+  );
+  assert.equal(server.messages[2].params, null);
   client.close();
 });
 

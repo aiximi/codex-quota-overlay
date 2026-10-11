@@ -23,15 +23,27 @@ Electron 44 会在首次使用时下载其官方运行时，后续复用缓存�
 1. **File → Open**，选择仓库根目录，而不是 `src` 或生成目录。
 2. **Settings → Languages & Frameworks → Node.js**，选择本机 Node 22.12+ 与 npm。
 3. 等待索引完成，运行配置会自动发现 `.run/` 下的配置：
+   - **Start**：构建后直接启动正式账号界面。
    - **Dev**：真实账号开发模式，保存源码后重新构建并重启。
    - **Preview (offline)**：示例数据，不读取账号、不调用真实重置。
    - **Check**：类型、格式和离线单元测试。
    - **UI Tests**：Electron 离线界面检查。
+   - **Format**：按仓库的 Prettier 配置格式化可读源码。
    - **Build packages**：本机打包。
+   - **Build Windows**：生成 Windows 安装器与便携版。
    - **Git Sync**：前台启动自动 Git 同步。若已经安装后台同步服务，不要重复运行。
+   - **Git Sync Status**：显示同步是否运行、是否暂停及原因。
 4. Git 工具窗口会显示 `origin`，IDEA 与命令行/Codex 使用同一个工作目录。无需复制项目或维护第二份源码。
 
 共享 `.idea/vcs.xml` 只包含 Git 映射。工作区窗口布局、本机 Node 路径和其他 `.idea` 用户偏好不提交。
+
+### 保存时保持源码可读
+
+在 **Settings → Languages & Frameworks → JavaScript → Prettier** 中选择 **Automatic Prettier configuration**，启用 **Run on save** 和 **Run on 'Reformat Code' action**。它会使用本仓库安装的 Prettier、`.prettierrc.json` 和 `.prettierignore`，让保存、IDEA 格式化动作与 `npm run format` 采用同一套规则。`.editorconfig` 统一 UTF-8、LF 换行与缩进。
+
+阅读、搜索和修改 `src/`、`native/windows/` 与 `scripts/` 中的源码。`dist/` 和 `build/` 是构建产物；压缩后的脚本不适合作为维护入口，重新构建也会覆盖它们。可将 `dist/`、`build/`、`release/`、`coverage/`、`test-results/` 与 `playwright-report/` 标记为 **Excluded**，减少 IDEA 索引与搜索噪音。Windows 原生 PowerShell 脚本遵循 `.editorconfig` 的四空格缩进，由维护者保持清晰布局，Prettier 不会修改原生脚本或 macOS 代码。
+
+自动同步会先执行格式检查，格式未通过时保留修改并暂停。先运行 **Format** 和 **Check**，通过后执行 `npm run sync:resume`；后台同步不会在编辑过程中擅自重新排版文件。
 
 ## 常用命令
 
