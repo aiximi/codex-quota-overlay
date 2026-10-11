@@ -155,8 +155,9 @@ function preferencesSection(state: OverlayState, draft: Draft | null): HTMLEleme
       }),
     )
       .then(() => {
+        // The save reply can arrive before onState publishes the new language.
         if (!status.classList.contains('is-error'))
-          notify(translator(current?.settings.language ?? 'en')('saved'));
+          notify(translator(values.language as Language)('saved'));
       })
       .finally(() => {
         preferencesBusy = false;

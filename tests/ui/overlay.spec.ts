@@ -64,6 +64,26 @@ test('offline preview is clickable, resets stay disabled, and settings change la
     const settings = await settingsCreated;
     settings.on('pageerror', (error) => pageErrors.push(error.message));
     await expect(settings.locator('#language')).toBeVisible();
+    // IPC replies and state broadcasts are separate channels. Reproduce a save
+    // completing before the settings window receives its new language state.
+    await app.evaluate(({ BrowserWindow }) => {
+      const window = BrowserWindow.getAllWindows().find((candidate) =>
+        candidate.webContents.getURL().endsWith('/settings.html'),
+      );
+      if (!window) throw new Error('The settings window was not created.');
+      const contents = window.webContents;
+      const send = contents.send.bind(contents);
+      contents.send = (channel: string, ...args: unknown[]) => {
+        if (channel !== 'quota:updated') {
+          send(channel, ...args);
+          return;
+        }
+        contents.send = send;
+        setTimeout(() => {
+          if (!contents.isDestroyed()) send(channel, ...args);
+        }, 250);
+      };
+    });
     await settings.locator('#language').selectOption('en');
     await settings.locator('.settings-form button[type="submit"]').click();
     await expect(settings.locator('h1')).toHaveText('Preferences');
@@ -80,6 +100,7 @@ test('offline preview is clickable, resets stay disabled, and settings change la
     await settings.locator('.settings-form button[type="submit"]').click();
     await expect(settings.locator('h1')).toHaveText('偏好设置');
     await expect(overlay.locator('h1')).toHaveText('额度概览');
+    await expect(settings.locator('.settings-status')).toHaveText('设置已保存。');
     await expect(overlay.locator('.reset-button').first()).toBeDisabled();
     expect(pageErrors).toEqual([]);
   } finally {
