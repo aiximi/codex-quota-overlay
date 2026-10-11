@@ -64,7 +64,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/test-windows-install.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: packages-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
@@ -72,7 +72,7 @@ jobs:
             release/*.zip
             release/*.exe
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: diagnostics-${{ matrix.platform }}-${{ matrix.arch }}
