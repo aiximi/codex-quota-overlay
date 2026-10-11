@@ -21,7 +21,7 @@ if (process.platform === 'darwin') {
       '-swift-version',
       '5',
       '-target',
-      `${target}-apple-macosx12.0`,
+      `${target}-apple-macosx13.0`,
       resolve(root, 'native/macos/WindowTracker.swift'),
       '-o',
       resolve(root, 'build/native/macos/window-tracker'),
