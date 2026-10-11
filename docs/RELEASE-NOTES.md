@@ -23,3 +23,5 @@ The `setup.exe` installer supports choosing an installation folder on a writable
 SmartScreen may display “Windows protected your PC” **before** the installation wizard because this release is unsigned and has not established download reputation. After checking the source and checksum, users who choose to trust this release can use **More info → Run anyway**, if Windows offers that option. If organizational policy or Smart App Control prevents it, consult the device administrator; do not disable global protection. Signing future releases would not guarantee that every new file immediately avoids this prompt. See [Microsoft's explanation](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
 
 中文：请选择 `setup.exe`，在安装向导的目录页点击“浏览”，可选 D 盘、E 盘等有写入权限的位置。“Windows 已保护你的电脑”出现在安装向导之前；核对本项目下载来源与 SHA-256 后，如果决定信任此版本，可自行点击“更多信息 → 仍要运行”。若系统没有该入口，请联系设备管理员。当前版本没有正式代码签名，此提示不能宣称已消除。详细步骤见 [安装说明](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/USAGE.md)。
+
+维护者申请代码签名的免费方案、费用、身份验证步骤和发布流程见 [Windows 签名指南](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/WINDOWS-SIGNING.md)。

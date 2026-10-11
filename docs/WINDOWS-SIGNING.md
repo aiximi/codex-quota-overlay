@@ -10,13 +10,13 @@
 
 ## 可选方式与费用
 
-| 方式                                                                                                                   | 官方公布的费用                         | 对本项目的适用性与限制                                                                                                        |
-| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| [SignPath Foundation](https://signpath.org/apply.html)                                                                 | 符合条件的开源项目免费                 | 可申请审核；要求开源、维护、公开发行、双重验证和可核验的构建来源。基金会保留审批权，新仓库不能保证获批；证书发布者是基金会。  |
-| [Certum 开源云签名](https://shop.certum.eu/open-source-code-signing-on-simplysign.html)                                | 页面标价 **€49 起**                    | 当前商品页显示缺货；需先确认供货、期限、税费、所在地和证件能否验证。开源方案仅签发给个人，并限制商业分发用途。                |
-| [Microsoft Artifact Signing](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)   | 约 **US$9.99/月**                      | 个人目前仅支持美国、加拿大；组织支持美国、加拿大、欧盟、英国。中国大陆个人目前不在该申请范围。需要付费 Azure 订阅和身份验证。 |
-| [传统 CA 的 OV 证书](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)           | 微软给出的参考范围为 **US$150–300/年** | 具体报价、云签名或硬件设备费用、支持国家及验证材料以所选 CA 为准。                                                            |
-| [Microsoft Store 的 MSIX 分发](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options) | 商店为 MSIX 重签名免费                 | 需另外适配 MSIX、注册开发者并通过上架审核；不是给现有 GitHub EXE 自动免费签名。Store 的 MSI/EXE 提交仍需要发布者自己签名。    |
+| 方式                                                                                                                   | 官方公布的费用                         | 对本项目的适用性与限制                                                                                                                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [SignPath Foundation](https://signpath.org/apply.html)                                                                 | 符合条件的开源项目免费                 | 可申请审核；要求开源、维护、公开发行、双重验证和可核验的构建来源。基金会保留审批权，新仓库不能保证获批；证书发布者是基金会。                                                                                                               |
+| [Certum 开源云签名](https://shop.certum.eu/open-source-code-signing-on-simplysign.html)                                | 页面标价 **€49 起**                    | 当前商品页显示缺货；需先确认供货、期限、税费、所在地和证件能否验证。开源方案仅签发给个人，并限制商业分发用途。                                                                                                                             |
+| [Microsoft Artifact Signing](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)   | 约 **US$9.99/月**                      | 个人目前仅支持美国、加拿大，中国大陆个人目前不在该申请范围。组织支持多个指定国家/地区，以 [Public Trust 前置条件](https://learn.microsoft.com/en-us/azure/artifact-signing/quickstart#prerequisites) 为准。需要付费 Azure 订阅和身份验证。 |
+| [传统 CA 的 OV 证书](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)           | 微软给出的参考范围为 **US$150–300/年** | 具体报价、云签名或硬件设备费用、支持国家及验证材料以所选 CA 为准。                                                                                                                                                                         |
+| [Microsoft Store 的 MSIX 分发](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options) | 商店为 MSIX 重签名免费                 | 需另外适配 MSIX、注册开发者并通过上架审核；不是给现有 GitHub EXE 自动免费签名。Store 的 MSI/EXE 提交仍需要发布者自己签名。                                                                                                                 |
 
 对当前公开 MIT 项目，可以优先评估 SignPath 免费申请。若需要用自己的个人或公司身份签名，再核对商业 CA 的条件和总费用。不要仅为消除 SmartScreen 提示而购买更贵的 EV 证书。
 
@@ -46,10 +46,12 @@
 
 其云方案使用 SimplySign 手机应用和桌面组件，不需要另购实体读卡器；但“云签名”不自动意味着可直接无人值守接入 GitHub Actions。购买前还应核对自动化签名方式，见 [产品技术要求](https://shop.certum.eu/open-source-code-signing-on-simplysign.html)。
 
-身份证、护照、地址证明、支付信息、签名私钥和恢复码只提交到供应商的正式安全入口。不要发到 Issue、源码仓库或聊天。GitHub 的普通账号验证、GitHub CLI 的 workflow 授权和域名 HTTPS 证书，都不能替代 Windows 代码签名。
+身份证、护照、地址证明和付款资料仅通过供应商官方的验证或支付流程提交。签名私钥按服务要求保存在 HSM 或硬件令牌中；账号恢复码由维护者妥善离线保管，不作为申请材料上传。上述资料都不要发到 Issue、源码仓库或聊天。GitHub 的普通账号验证、GitHub CLI 的 workflow 授权和域名 HTTPS 证书，都不能替代 Windows 代码签名。
 
 ## Microsoft Artifact Signing 的办理顺序
 
 先确认身份所在地区符合要求，再准备支持的付费 Azure 订阅，创建 Artifact Signing 资源，完成个人或组织身份验证并建立 Public Trust 证书配置。身份通过后，为发布流程配置最小范围的签名权限并验证输出。免费、试用或赞助 Azure 订阅不支持该服务，见 [官方 FAQ](https://learn.microsoft.com/en-us/azure/artifact-signing/faq)。
+
+创建 Artifact Signing 账户就会开始计费，不会等身份审核通过才收费。所选 SKU 按完整月费计算，不按当月使用天数折算；因此应先核实资格和费用，见 [官方计费说明](https://azure.microsoft.com/en-us/pricing/details/artifact-signing/)。
 
 当前只提供方案和申请步骤，未替任何维护者注册、提交身份材料、同意服务条款或购买服务。

@@ -40,6 +40,8 @@ macOS 同时提供 ZIP。使用发布页的 `SHA256SUMS.txt` 校验下载文件�
 
 **Windows 提示“未识别的应用”：** SmartScreen 在安装向导之前检查下载文件。当前包未签名，新版本需要积累信誉；即使以后签名，也不能保证新版本不再提示。“未识别”本身不是病毒检测结论。核对本仓库发布页和 SHA-256 后，若系统提供入口且你决定信任此下载，可自行选择“更多信息 → 仍要运行”。企业策略或 Smart App Control 阻止时，不要关闭全局保护；请联系设备管理员或等待符合设备策略的发行方式。参见 [Microsoft 官方说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
 
+维护者如需申请签名，请参阅 [Windows 代码签名：申请步骤、免费方案与费用](docs/WINDOWS-SIGNING.md)。
+
 ### 首次使用
 
 1. 安装官方 Codex，并用 ChatGPT 账号登录。

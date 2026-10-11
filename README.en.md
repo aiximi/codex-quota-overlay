@@ -24,6 +24,8 @@ Builds are not Apple Developer ID notarized or Windows Authenticode signed. The 
 
 **“Unrecognized app” before the installer:** Current packages are unsigned and new versions need SmartScreen reputation; signing would not guarantee warning-free releases. This warning alone is not a malware verdict. After verifying this repository's release and SHA-256, you may choose **More info → Run anyway** if Windows offers it and you trust the download. If enterprise policy or Smart App Control blocks execution, keep global protection enabled and contact your administrator or wait for a release that meets your device's policy. See [Microsoft's explanation](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation) and the [installation guide](docs/USAGE.md).
 
+Maintainers can find application steps, free options and costs in the [Windows signing guide (Chinese)](docs/WINDOWS-SIGNING.md).
+
 Install and sign in to official Codex first. Start the overlay, switch to Codex, and expand the capsule. Use the tray/menu-bar Settings entry to change language, configure login startup, set the refresh interval, or choose a native Codex executable.
 
 The current authentication adapter supports ChatGPT credentials in `CODEX_HOME/auth.json` or `~/.codex/auth.json`. Keychain-only credentials, API-key logins and third-party providers may not work. Never publish your authentication file, token or account identifier in an issue.
