@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    paths-ignore:
+      - README.md
+      - README.en.md
+      - DOWNLOADS.md
+      - docs/VERSIONS.md
+      - docs/releases/catalog.json
   pull_request:
   workflow_dispatch:
 
@@ -82,6 +88,33 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate the version and release notes
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const tag = process.env.RELEASE_TAG;
+          if (!/^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(tag)) throw new Error('Use a stable vX.Y.Z release tag.');
+          const version = JSON.parse(readFileSync('package.json', 'utf8')).version;
+          if (tag !== `v${version}`) throw new Error('The tag must match package.json version.');
+          const notes = readFileSync(`docs/releases/${tag}.md`, 'utf8');
+          const changes = notes.split(/^## 更新内容\s*$/m)[1]?.split(/^## /m)[0];
+          if (!changes || !/^- \S/m.test(changes)) {
+            throw new Error('Release notes require a ## 更新内容 section with concrete top-level bullet points.');
+          }
+          const documents = `https://github.com/${process.env.RELEASE_REPOSITORY}/blob/${process.env.DEFAULT_BRANCH}`;
+          for (const file of ['DOWNLOADS.md', 'docs/VERSIONS.md']) {
+            if (!notes.includes(`${documents}/${file}`)) {
+              throw new Error(`Release notes must link to the unified ${file} page.`);
+            }
+          }
+          NODE
       - uses: actions/download-artifact@v4
         with:
           pattern: packages-*
@@ -93,4 +126,5 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" release/* --verify-tag --title "Codex Quota Overlay ${{ github.ref_name }}" --notes-file docs/RELEASE-NOTES.md
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" release/* --verify-tag --title "Codex Quota Overlay $RELEASE_TAG" --notes-file "docs/releases/$RELEASE_TAG.md"

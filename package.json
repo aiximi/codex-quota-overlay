@@ -29,7 +29,7 @@
     "format:check": "prettier --check .",
     "test": "tsx --test tests/**/*.test.ts tests/**/*.test.mjs",
     "test:ui": "npm run build && playwright test",
-    "check": "npm run typecheck && npm run format:check && npm test",
+    "check": "npm run typecheck && npm run format:check && npm run releases:check && npm test",
     "package": "npm run build && electron-builder --publish never",
     "package:mac": "npm run build && electron-builder --mac --publish never",
     "package:win": "npm run build && electron-builder --win --publish never",
@@ -38,7 +38,10 @@
     "sync:status": "node scripts/git-sync.mjs --status",
     "sync:resume": "node scripts/git-sync.mjs --resume",
     "sync:install": "node scripts/install-sync.mjs",
-    "sync:uninstall": "node scripts/install-sync.mjs --uninstall"
+    "sync:uninstall": "node scripts/install-sync.mjs --uninstall",
+    "releases:generate": "node scripts/releases/catalog.mjs",
+    "releases:refresh": "node scripts/releases/catalog.mjs --fetch",
+    "releases:check": "node scripts/releases/catalog.mjs --check"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

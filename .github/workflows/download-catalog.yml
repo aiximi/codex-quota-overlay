@@ -1,0 +1,119 @@
+name: Update download catalog
+
+on:
+  release:
+    types: [published, edited]
+  workflow_run:
+    workflows: [Publish Windows release, Build and test]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: download-catalog
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: >-
+      (github.event_name != 'release' ||
+        (!github.event.release.draft && !github.event.release.prerelease)) &&
+      (github.event_name != 'workflow_dispatch' ||
+        github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) &&
+      (github.event_name != 'workflow_run' ||
+        (github.event.workflow_run.head_repository.full_name == github.repository &&
+          contains(fromJSON('["push", "workflow_dispatch"]'), github.event.workflow_run.event)))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      # Only the trusted default branch supplies executable code. Never use a
+      # workflow_run checkout or its downloadable artifacts in this write job.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate the trigger and clean checkout
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+            echo 'The default-branch checkout must be clean.' >&2
+            exit 1
+          fi
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
+            if [[ ! "$TRIGGER_SHA" =~ ^[a-fA-F0-9]{40}$ ]]; then
+              echo 'Invalid triggering commit SHA.' >&2
+              exit 1
+            fi
+            git cat-file -e "${TRIGGER_SHA}^{commit}"
+            git merge-base --is-ancestor "$TRIGGER_SHA" HEAD || {
+              echo 'The triggering source is not part of the trusted default branch.' >&2
+              exit 1
+            }
+          fi
+          echo "CATALOG_BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install formatting tools without dependency scripts
+        run: npm ci --ignore-scripts
+      - name: Refresh and validate the public download catalog
+        run: |
+          set -euo pipefail
+          files=(README.md README.en.md DOWNLOADS.md docs/VERSIONS.md docs/releases/catalog.json)
+          node scripts/releases/catalog.mjs --fetch
+          node scripts/releases/catalog.mjs --check
+          npx --no-install prettier --check "${files[@]}"
+          before="$(sha256sum "${files[@]}")"
+          node scripts/releases/catalog.mjs
+          after="$(sha256sum "${files[@]}")"
+          if [[ "$before" != "$after" ]]; then
+            echo 'Offline catalog generation was not idempotent.' >&2
+            exit 1
+          fi
+          node scripts/releases/catalog.mjs --check
+      - name: Commit only catalog files and safely push
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          const allowed = new Set([
+            'README.md', 'README.en.md', 'DOWNLOADS.md',
+            'docs/VERSIONS.md', 'docs/releases/catalog.json',
+          ]);
+          const changes = execFileSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { encoding: 'utf8' });
+          for (const record of changes.split('\0').filter(Boolean)) {
+            if (![' M', '??'].includes(record.slice(0, 2)) || !allowed.has(record.slice(3))) {
+              throw new Error('Catalog generation changed a file outside the approved list or staged files unexpectedly.');
+            }
+          }
+          NODE
+          if [[ -z "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+            echo 'The public download catalog is already current.'
+            exit 0
+          fi
+          # Refuse a concurrent branch change. A subsequent build completion or
+          # manual rerun will regenerate from the new source instead of merging
+          # generated content over a maintainer's changes.
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' fetch --no-tags origin "$DEFAULT_BRANCH"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$CATALOG_BASE_SHA" ]]; then
+            echo 'The default branch changed; rerun the catalog workflow on its new head.' >&2
+            exit 1
+          fi
+          git add -- README.md README.en.md DOWNLOADS.md docs/VERSIONS.md docs/releases/catalog.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'docs: refresh public download catalog'
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin "HEAD:refs/heads/$DEFAULT_BRANCH"
+      - name: Refresh the download navigation on published releases
+        run: node scripts/releases/navigation.mjs --apply

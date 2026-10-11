@@ -8,7 +8,9 @@
 
 ## 下载
 
-仅从本项目 [Releases](https://github.com/aiximi/codex-quota-overlay/releases/latest) 下载对应架构文件。macOS 在“关于本机”查看芯片类型；Windows 下载 x64 安装版或便携版。
+从本项目 [下载中心](../DOWNLOADS.md) 选择对应系统的最新版本，历史安装包和每次变化见 [版本历史](VERSIONS.md)。各平台独立发布：Windows 2.0.1 是 Windows 专用修复版，macOS 仍使用 2.0.0，不需要寻找 macOS 2.0.1。
+
+macOS 在“关于本机”查看芯片类型，选择 Apple Silicon 或 Intel；Windows 下载 x64 安装版或便携版。下载中心链接均指向本仓库的 GitHub 发布文件。
 
 macOS 打开 DMG 后将应用拖到 Applications。当前 macOS 构建没有 Apple Developer ID 公证，可以在“系统设置 → 隐私与安全性”查看该应用的允许打开入口。
 
@@ -21,21 +23,21 @@ shasum -a 256 Codex-Quota-Overlay-2.0.0-mac-arm64.dmg
 
 ```powershell
 # Windows
-Get-FileHash .\Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe -Algorithm SHA256
+Get-FileHash .\Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 将输出与同一发布页的 `SHA256SUMS.txt` 对照。
 
 ### Windows 安装版：选择盘符和目录
 
-1. 下载 `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe` 并核对 SHA-256。
+1. 下载 `Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe` 并核对同一发布页的 SHA-256。
 2. 运行文件；如出现 SmartScreen 提示，先按下节核对并决定是否继续。**此提示发生在安装向导之前，还没有进入目录选择页。**
 3. 在安装向导的目录选择页点击“浏览”，或直接填写目标目录，例如 `D:\Apps\Codex Quota Overlay`。也可以选择其他存在的盘符。
 4. 当前账号对目标目录有写权限即可按当前用户安装；如果目录不可写，请选择有权限的位置，再继续安装。
 
 ### Windows 便携版
 
-`Codex-Quota-Overlay-2.0.0-windows-x64-portable.exe` 无需安装，也没有安装目录选择页。把文件放到想用的盘符，例如 `D:\Apps\Codex Quota Overlay\`，再双击运行即可。
+`Codex-Quota-Overlay-2.0.1-windows-x64-portable.exe` 无需安装，也没有安装目录选择页。把文件放到想用的盘符，例如 `D:\Apps\Codex Quota Overlay\`，再双击运行即可。
 
 “便携”指无需安装程序；设置、订阅记录和重置状态仍保存在当前用户的 `%APPDATA%\Codex Quota Overlay\`，不会随 EXE 一起移动。安装版选择其他盘符也不会改变该用户数据位置。
 
@@ -71,49 +73,60 @@ Get-FileHash .\Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe -Algorithm SHA256
 
 ## 常见问题
 
-| 情况                     | 处理                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------ |
-| 看不到浮层               | 确认正在使用官方 Codex 且窗口不是最小化；托盘 → 恢复位置；重启浮层。                             |
-| 找不到 CLI               | 设置中选择 Codex 安装目录内真实的 `codex` / `codex.exe`，不要选 `.cmd` 或 shell 脚本。           |
-| 提示先登录               | 确认 ChatGPT 登录信息存储于 `~/.codex/auth.json` 或 `CODEX_HOME` 对应目录；不支持 API key 方式。 |
-| 订阅日期未获取           | 此接口可能不可用，在设置中按账单填写日期。                                                       |
-| 重置按钮灰色             | 等待同步；检查机会是否到期、已处理，或有上次结果待确认。预览模式始终禁用。                       |
-| 网络失败                 | 保留上次用量并标记错误。检查现有系统代理和网络，稍后手动刷新。                                   |
-| Windows helper 启动失败  | 检查是否被组织脚本策略限制。helper 的进程级策略不修改系统策略，也不覆盖组织策略。                |
-| Windows 没有出现目录选择 | 先确认下载的是 `setup.exe`；SmartScreen 提示在安装向导之前，`portable.exe` 没有目录选择页。      |
-| Windows 安装目录不可写   | 在向导中浏览到当前账号有写权限的目录，例如 `D:\Apps\Codex Quota Overlay`。                       |
-| Codex 更新后无法使用     | 报告应用和系统版本，附重现步骤；不要上传 token、auth.json 或私人日志。                           |
+| 情况                     | 处理                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| 看不到浮层               | 确认正在使用官方 Codex 且窗口不是最小化；托盘 → 恢复位置；重启浮层。                                                           |
+| 找不到 CLI               | Windows 优先清空设置中的旧 CLI 路径以自动查找；手动选择时须用可执行的原生 `codex` / `codex.exe`，不要选 `.cmd` 或 shell 脚本。 |
+| 提示先登录               | 确认 ChatGPT 登录信息存储于 `~/.codex/auth.json` 或 `CODEX_HOME` 对应目录；不支持 API key 方式。                               |
+| 订阅日期未获取           | 此接口可能不可用，在设置中按账单填写日期。                                                                                     |
+| 重置按钮灰色             | 等待同步；检查机会是否到期、已处理，或有上次结果待确认。预览模式始终禁用。                                                     |
+| 网络失败                 | 保留上次用量并标记错误。检查现有系统代理和网络，稍后手动刷新。                                                                 |
+| Windows helper 启动失败  | 检查是否被组织脚本策略限制。helper 的进程级策略不修改系统策略，也不覆盖组织策略。                                              |
+| Windows 没有出现目录选择 | 先确认下载的是 `setup.exe`；SmartScreen 提示在安装向导之前，`portable.exe` 没有目录选择页。                                    |
+| Windows 安装目录不可写   | 在向导中浏览到当前账号有写权限的目录，例如 `D:\Apps\Codex Quota Overlay`。                                                     |
+| Codex 更新后无法使用     | 报告应用和系统版本，附重现步骤；不要上传 token、auth.json 或私人日志。                                                         |
 
 ## 更新与卸载
 
-### Windows 面板可见但点击无反应
+### Windows 2.0.1：修复点击、跟随与额度显示
 
 旧版 Windows 窗口使用不可获得焦点的原生窗口，可能显示面板却无法正常点击。修复版允许点击时获得焦点，同时保留与 Codex 的窗口关联；切换其他应用或最小化 Codex 后仍会隐藏。拖动完成后才保存位置，避免每次移动同步写盘。
 
 如果同时一直显示 `—`，修复版会自动寻找 `%LOCALAPPDATA%\OpenAI\Codex\bin\<版本>\codex.exe`，并使用当前 Windows CLI 要求的无参数额度查询。更新后无需手动填写带版本号的路径；此前手动指定过旧路径的用户可在设置中清空 CLI 路径，恢复自动查找。额度读取成功后会先显示，订阅日期可能稍后返回。
 
-这些改动只调整 Windows 分支，macOS 窗口和额度请求方式保持原样。构建当前修复源码可运行 `npm ci`、`npm run check`、`npm run test:ui`、`npm run package:win`；`release/` 内生成新的安装包。仅拉取源码不会自动更新已经安装的程序，需要退出旧浮层并安装新的构建。
+这些修复已发布为 **Windows 2.0.1**，详情见 [本次版本说明](releases/windows-v2.0.1.md)。这是仅 Windows 的更新，macOS 继续使用原 2.0.0 安装包，窗口和额度请求方式保持原样。
 
-下载新发行版，退出旧应用后替换/安装。当前没有自动更新器。卸载前可以关闭登录启动；Windows 从“已安装的应用”卸载，macOS 删除 Applications 中的应用，便携版删除下载文件。
+1. 在 [下载中心](../DOWNLOADS.md) 下载对应系统的版本，并核对该发布页的校验值。
+2. 通过系统托盘/菜单栏的“退出”结束旧浮层。关闭 Codex 窗口不等于退出浮层，不要同时运行旧版和新版。
+3. Windows 安装版运行新 `setup.exe`；便携版退出旧程序后替换 EXE，再启动新文件。macOS 退出旧应用后替换 Applications 中的应用。
+4. 切换到 Codex 检查点击和用量显示；Windows 若曾指定失效的 CLI 路径，在设置中清空它，恢复自动查找。
+
+当前没有自动更新器；拉取 Git 源码也不会替换已经安装的程序。Windows 安装版选择盘符的功能在 2.0.0 已有，2.0.1 仍然保留。当前 Windows 包仍未签名，升级不代表 SmartScreen 提示已经消除。
+
+卸载前可以关闭登录启动；Windows 从“已安装的应用”卸载，macOS 删除 Applications 中的应用，便携版删除下载文件。
 
 本地设置位于 Electron 当前用户数据目录：macOS 的 `~/Library/Application Support/Codex Quota Overlay/`，Windows 的 `%APPDATA%/Codex Quota Overlay/`。未明确核对的重置记录也在其中。**存在结果不明的重置时，不要删除设置来尝试重置另一条。** 开发者 Git 同步需单独运行 `npm run sync:uninstall` 停止，删除应用不会删除开发仓库或同步服务。
 
 ## English quick guide
 
-Install official Codex and sign in with a supported ChatGPT file-based login. Download the matching package, verify its checksum, and run the overlay. Switch to Codex to see the capsule; click to expand, use the left grip to drag, and open Settings from the tray/menu bar.
+Install official Codex and sign in with a supported ChatGPT file-based login. Select your platform in the [download center](../DOWNLOADS.md), verify the matching release checksum, and run the overlay. The [version history](VERSIONS.md) includes older downloads and each release's changes. Switch to Codex to see the capsule; click to expand, use the left grip to drag, and open Settings from the tray/menu bar.
 
 Each Reset button selects one credit and opens a confirmation whose default is Cancel. The app never automatically redeems credits. Network uncertainty retains the operation ID; retry the same item after reviewing refreshed data. Preview is fully offline and cannot redeem a real credit.
 
-Subscription dates are best-effort official lookups or explicitly labelled cached/manual entries. Set a date manually if the account endpoint is unavailable. To update, quit and install the new release.
+Subscription dates are best-effort official lookups or explicitly labelled cached/manual entries. Set a date manually if the account endpoint is unavailable.
+
+**Windows 2.0.1 is a Windows-only update; macOS remains on 2.0.0.** It fixes native mouse/keyboard input, Codex window tracking during overlay interaction, managed CLI discovery, and the Windows quota request. Usage can now appear before the optional subscription lookup completes. See the [release details](releases/windows-v2.0.1.md).
+
+Before updating, quit the old overlay through its tray/menu-bar menu; closing Codex alone does not stop it. Run the new Windows installer or replace the portable EXE after quitting. Do not run both versions together. Clear any obsolete manual CLI path in Settings to restore automatic discovery. There is no auto-updater, and pulling source changes does not update an installed binary. These Windows builds remain unsigned; the update does not remove SmartScreen restrictions.
 
 ### Windows installation and drive selection
 
-1. Download `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe` from this repository's Releases and compare its SHA-256 with the matching `SHA256SUMS.txt`.
+1. Download `Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe` through the [download center](../DOWNLOADS.md) and compare its SHA-256 with `SHA256SUMS.txt` from the same release.
 2. Run the file. Any SmartScreen warning appears **before** the installation wizard and its directory page.
 3. On the directory page, choose **Browse** or enter a location such as `D:\Apps\Codex Quota Overlay`. You may select another drive. Installation is per-user; your account needs write permission to that directory.
 4. Continue through the wizard. If the directory is not writable, choose a location your account can write to.
 
-`Codex-Quota-Overlay-2.0.0-windows-x64-portable.exe` has no installation-directory selection. Place it on your preferred drive and run it there. Both versions keep settings, subscription entries and reset state in `%APPDATA%\Codex Quota Overlay\`; moving the executable does not move this data.
+`Codex-Quota-Overlay-2.0.1-windows-x64-portable.exe` has no installation-directory selection. Place it on your preferred drive and run it there. Both versions keep settings, subscription entries and reset state in `%APPDATA%\Codex Quota Overlay\`; moving the executable does not move this data. Custom installation directories were already supported in 2.0.0.
 
 ### Windows SmartScreen warning
 

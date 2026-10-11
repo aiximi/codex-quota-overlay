@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-本项目当前 `v2.0.0` 的 Windows 文件未做 Authenticode 签名。尚未申请或获得任何下列服务，也没有开通付费订阅。安装和目录选择说明见 [USAGE.md](USAGE.md)。
+本项目现有 Windows 公开发行包尚未启用 Authenticode 签名；各系统当前版本见 [下载中心](../DOWNLOADS.md)。尚未申请或获得任何下列服务，也没有开通付费订阅。安装和目录选择说明见 [USAGE.md](USAGE.md)。
 
 ## 可选方式与费用
 
@@ -34,7 +34,7 @@
 - 项目：Codex Quota Overlay。
 - 仓库：<https://github.com/aiximi/codex-quota-overlay>。
 - 许可证：MIT。
-- 已有发行：<https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.0.0>。
+- 已有发行与版本记录：<https://github.com/aiximi/codex-quota-overlay/blob/main/docs/VERSIONS.md>。
 - 用途：在用户运行 Codex 时显示账号额度、重置时间与订阅日期；重置需要用户再次确认。
 - 隐私说明：[PRIVACY.md](PRIVACY.md)；构建流程：[CI](../.github/workflows/ci.yml)。
 

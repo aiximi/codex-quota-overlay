@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "repository": "aiximi/codex-quota-overlay",
+  "releases": [
+    {
+      "tag": "windows-v2.0.1",
+      "version": "2.0.1",
+      "publishedAt": "2026-10-11T16:24:54.000Z",
+      "url": "https://github.com/aiximi/codex-quota-overlay/releases/tag/windows-v2.0.1",
+      "notes": "docs/releases/windows-v2.0.1.md",
+      "checksum": {
+        "name": "SHA256SUMS.txt",
+        "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/windows-v2.0.1/SHA256SUMS.txt",
+        "size": 231
+      },
+      "platforms": [
+        {
+          "id": "windows-x64",
+          "files": {
+            "setup": {
+              "name": "Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/windows-v2.0.1/Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe",
+              "size": 111531291,
+              "sha256": "3074121ab87b8a8bb3a61c00b5bef4d2d0d24a46f6b309bbbc5ba03f7c665176"
+            },
+            "portable": {
+              "name": "Codex-Quota-Overlay-2.0.1-windows-x64-portable.exe",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/windows-v2.0.1/Codex-Quota-Overlay-2.0.1-windows-x64-portable.exe",
+              "size": 111289993,
+              "sha256": "487c2cb6f29d080318737d0efa02d8e07eaef9e2d4cde6ecad9bff702731c123"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "tag": "v2.0.0",
+      "version": "2.0.0",
+      "publishedAt": "2026-10-11T13:10:19.000Z",
+      "url": "https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.0.0",
+      "notes": "docs/releases/v2.0.0.md",
+      "checksum": {
+        "name": "SHA256SUMS.txt",
+        "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/SHA256SUMS.txt",
+        "size": 651
+      },
+      "platforms": [
+        {
+          "id": "windows-x64",
+          "files": {
+            "setup": {
+              "name": "Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe",
+              "size": 111528976,
+              "sha256": "772f85f7d9b31f2791307bc3f704f388bf5487b1a31531187974a5f0e347e3d2"
+            },
+            "portable": {
+              "name": "Codex-Quota-Overlay-2.0.0-windows-x64-portable.exe",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-windows-x64-portable.exe",
+              "size": 111287605,
+              "sha256": "ce378adcebbeb87e7950ad1255bfb22fe730e566f7afde0f2ea021baa105c61e"
+            }
+          }
+        },
+        {
+          "id": "mac-arm64",
+          "files": {
+            "dmg": {
+              "name": "Codex-Quota-Overlay-2.0.0-mac-arm64.dmg",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-arm64.dmg",
+              "size": 126785301,
+              "sha256": "91eb4ff80c755646299a7cac55fd510bafbf4ba140edf15c45578bda8feeda13"
+            },
+            "zip": {
+              "name": "Codex-Quota-Overlay-2.0.0-mac-arm64.zip",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-arm64.zip",
+              "size": 126750946,
+              "sha256": "9fb0a9c81c127083e5888ccb35d2296eea5e4a93d58c621ac7f1c6af4a04489e"
+            }
+          }
+        },
+        {
+          "id": "mac-x64",
+          "files": {
+            "dmg": {
+              "name": "Codex-Quota-Overlay-2.0.0-mac-x64.dmg",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-x64.dmg",
+              "size": 133607187,
+              "sha256": "3ec77a59754a3f6920c15827ccc071e6c447fbccb8d93a2ba96dc21ccfbcc422"
+            },
+            "zip": {
+              "name": "Codex-Quota-Overlay-2.0.0-mac-x64.zip",
+              "url": "https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-x64.zip",
+              "size": 133618101,
+              "sha256": "fb48872093161912593ed3854b80158d036ac176937b1fa15673397651741b56"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

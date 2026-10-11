@@ -1,8 +1,22 @@
 # Codex Quota Overlay
 
-[中文](README.md) · [Download](https://github.com/aiximi/codex-quota-overlay/releases/latest) · [Development](docs/DEVELOPMENT.md) · [Privacy](docs/PRIVACY.md)
-
 A compact **macOS and Windows** desktop overlay that appears while Codex is in the foreground. See remaining quota, reset countdowns, individual reset-credit expiration dates, extra credits, and subscription dates. Redeem a selected reset credit only after explicit confirmation.
+
+## Download
+
+<!-- downloads:start -->
+
+| System                    | Latest stable | Recommended                                                                                                                                          | Alternative                                                                                                                                       | Changes                                                                                                  |
+| ------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Windows 10/11 · x64       | **2.0.1**     | [Download installer](https://github.com/aiximi/codex-quota-overlay/releases/download/windows-v2.0.1/Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe) | [Portable EXE](https://github.com/aiximi/codex-quota-overlay/releases/download/windows-v2.0.1/Codex-Quota-Overlay-2.0.1-windows-x64-portable.exe) | [Release notes](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/releases/windows-v2.0.1.md) |
+| macOS 13+ · Apple Silicon | **2.0.0**     | [Download DMG](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-arm64.dmg)                       | [ZIP archive](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-arm64.zip)                     | [Release notes](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/releases/v2.0.0.md)         |
+| macOS 13+ · Intel         | **2.0.0**     | [Download DMG](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-x64.dmg)                         | [ZIP archive](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-x64.zip)                       | [Release notes](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/releases/v2.0.0.md)         |
+
+<!-- downloads:end -->
+
+[Download center: latest per platform and archived packages](DOWNLOADS.md) · [Version history and changes](docs/VERSIONS.md) · [Installation and usage](docs/USAGE.md)
+
+[中文](README.md) · [Development](docs/DEVELOPMENT.md) · [Privacy](docs/PRIVACY.md)
 
 Independent community software. Not affiliated with or endorsed by OpenAI. It does not patch Codex or inject code into its interface.
 
@@ -12,15 +26,11 @@ The preview uses synthetic data. Both Chinese and English interfaces are availab
 
 ## Install
 
-Download from [GitHub Releases](https://github.com/aiximi/codex-quota-overlay/releases/latest):
-
-- Apple Silicon: `*-mac-arm64.dmg`; Intel Mac: `*-mac-x64.dmg`. Drag the app into Applications.
-- Windows 10/11 x64: `*-windows-x64-setup.exe` or `*-windows-x64-portable.exe`.
-- Verify the file using the accompanying `SHA256SUMS.txt`.
+Choose your platform in the download section above; the latest version can differ between platforms. On macOS, open the DMG and drag the app into Applications, or use the ZIP. Before upgrading, quit the old overlay from the tray/menu bar, then install or replace the application. There is no auto-updater. Verify your download using `SHA256SUMS.txt` from the same release.
 
 Builds are not Apple Developer ID notarized or Windows Authenticode signed. The operating system may warn about an unknown publisher. Verify the source and checksum. Where offered, use only the OS's per-app approval interface; do not disable system-wide security.
 
-**Choose a Windows drive:** Run `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe`. On the installer's directory page, use **Browse** or enter a path such as `D:\Apps\Codex Quota Overlay`. Your account needs write permission to the selected directory. The `portable.exe` has no installation-directory page: place it on your preferred drive and run it there. User data still lives in `%APPDATA%\Codex Quota Overlay\`.
+**Choose a Windows drive:** Run the package whose name ends in `-windows-x64-setup.exe`. On the installer's directory page, use **Browse** or enter a path such as `D:\Apps\Codex Quota Overlay`. Your account needs write permission to the selected directory. The `portable.exe` has no installation-directory page: place it on your preferred drive and run it there. User data still lives in `%APPDATA%\Codex Quota Overlay\`.
 
 **“Unrecognized app” before the installer:** Current packages are unsigned and new versions need SmartScreen reputation; signing would not guarantee warning-free releases. This warning alone is not a malware verdict. After verifying this repository's release and SHA-256, you may choose **More info → Run anyway** if Windows offers it and you trust the download. If enterprise policy or Smart App Control blocks execution, keep global protection enabled and contact your administrator or wait for a release that meets your device's policy. See [Microsoft's explanation](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation) and the [installation guide](docs/USAGE.md).
 
@@ -60,7 +70,7 @@ npm run package:mac
 npm run package:win
 ```
 
-Build each release on its target OS. CI builds Apple Silicon, Intel Mac and Windows x64 packages. Windows CI checks cannot replace real desktop, mixed-DPI and multi-monitor testing. Linux window tracking is not supported. There is no auto-updater; use Releases for updates.
+Build each release on its target OS. CI builds Apple Silicon, Intel Mac and Windows x64 packages. Windows CI checks cannot replace real desktop, mixed-DPI and multi-monitor testing. Linux window tracking is not supported. Use the [download center](DOWNLOADS.md) to find updates for your platform.
 
 Optional developer Git synchronization checks changes, commits and pushes them, then integrates remote updates. Conflicts pause synchronization without overwriting either side. It is never enabled by the distributed application. See [SYNC.md](docs/SYNC.md).
 

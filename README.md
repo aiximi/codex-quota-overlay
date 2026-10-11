@@ -1,8 +1,22 @@
 # Codex Quota Overlay
 
-[English](README.en.md) · [下载最新版](https://github.com/aiximi/codex-quota-overlay/releases/latest) · [使用说明](docs/USAGE.md) · [开发与 IDEA](docs/DEVELOPMENT.md) · [自动同步](docs/SYNC.md)
-
 一个只在 Codex 位于前台时出现的小型桌面用量浮层，支持 **macOS 和 Windows**。查看剩余额度、周期重置倒计时、重置机会及到期时间、额外额度、订阅日期；需要时，在确认后使用指定的一次重置机会。
+
+## 下载
+
+<!-- downloads:start -->
+
+| 你的系统                  | 最新稳定版 | 推荐下载                                                                                                                                     | 其他格式                                                                                                                                        | 更新说明                                                                                            |
+| ------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Windows 10/11 · x64       | **2.0.1**  | [下载安装版](https://github.com/aiximi/codex-quota-overlay/releases/download/windows-v2.0.1/Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe) | [便携版 EXE](https://github.com/aiximi/codex-quota-overlay/releases/download/windows-v2.0.1/Codex-Quota-Overlay-2.0.1-windows-x64-portable.exe) | [查看变化](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/releases/windows-v2.0.1.md) |
+| macOS 13+ · Apple Silicon | **2.0.0**  | [下载安装版 DMG](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-arm64.dmg)             | [压缩包 ZIP](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-arm64.zip)                    | [查看变化](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/releases/v2.0.0.md)         |
+| macOS 13+ · Intel         | **2.0.0**  | [下载安装版 DMG](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-x64.dmg)               | [压缩包 ZIP](https://github.com/aiximi/codex-quota-overlay/releases/download/v2.0.0/Codex-Quota-Overlay-2.0.0-mac-x64.zip)                      | [查看变化](https://github.com/aiximi/codex-quota-overlay/blob/main/docs/releases/v2.0.0.md)         |
+
+<!-- downloads:end -->
+
+[下载中心：各系统最新与历史安装包](DOWNLOADS.md) · [版本历史与每次变化](docs/VERSIONS.md) · [安装与使用](docs/USAGE.md)
+
+[English](README.en.md) · [开发与 IDEA](docs/DEVELOPMENT.md) · [自动同步](docs/SYNC.md)
 
 **这是独立的社区开源项目，与 OpenAI 没有官方关联。** 它不修改 Codex 安装文件，也不向聊天界面注入代码。
 
@@ -23,20 +37,13 @@
 - 中英文界面、系统托盘/菜单栏、可选登录启动。
 - 本地运行，无遥测、无项目后台；认证信息不进入页面、日志或设置文件。
 
-## 下载与安装
+## 安装与首次使用
 
-打开 [Releases](https://github.com/aiximi/codex-quota-overlay/releases/latest)，按系统下载：
+从上方下载区选择适合自己系统的文件；各系统可能采用不同版本号。macOS 打开 DMG 后拖到 Applications，也可使用 ZIP。升级前通过托盘/菜单栏退出旧浮层，再安装或替换应用；当前没有自动更新器。
 
-| 系统                     | 文件                         | 安装方式                |
-| ------------------------ | ---------------------------- | ----------------------- |
-| macOS Apple Silicon      | `*-mac-arm64.dmg`            | 打开后拖到 Applications |
-| macOS Intel              | `*-mac-x64.dmg`              | 打开后拖到 Applications |
-| Windows 10/11 x64        | `*-windows-x64-setup.exe`    | 在向导中选择安装目录    |
-| Windows 10/11 x64 便携版 | `*-windows-x64-portable.exe` | 放到所需盘符后直接运行  |
+使用对应发布页的 `SHA256SUMS.txt` 校验下载文件。当前发行包没有 Apple Developer ID 公证或 Windows Authenticode 证书，系统可能提示未知开发者；请确认下载来源与校验值，在系统提供的单应用允许入口继续，**不需要关闭全局安全设置**。详见 [安装与故障排查](docs/USAGE.md)。
 
-macOS 同时提供 ZIP。使用发布页的 `SHA256SUMS.txt` 校验下载文件。当前发行包没有 Apple Developer ID 公证或 Windows Authenticode 证书，系统可能提示未知开发者；请确认下载来源与校验值，在系统提供的单应用允许入口继续，**不需要关闭全局安全设置**。详见 [安装与故障排查](docs/USAGE.md)。
-
-**Windows 选择盘符：** 下载 `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe`，进入安装向导的目录选择页，点击“浏览”或填写 `D:\Apps\Codex Quota Overlay` 等位置，当前账号对目标目录有写权限即可。`portable.exe` 不显示安装目录选择，可以直接放到所需盘符；设置等用户数据仍保存在 `%APPDATA%\Codex Quota Overlay\`。
+**Windows 选择盘符：** 下载名称以 `-windows-x64-setup.exe` 结尾的安装包，进入安装向导的目录选择页，点击“浏览”或填写 `D:\Apps\Codex Quota Overlay` 等位置，当前账号对目标目录有写权限即可。`portable.exe` 不显示安装目录选择，可以直接放到所需盘符；设置等用户数据仍保存在 `%APPDATA%\Codex Quota Overlay\`。
 
 **Windows 提示“未识别的应用”：** SmartScreen 在安装向导之前检查下载文件。当前包未签名，新版本需要积累信誉；即使以后签名，也不能保证新版本不再提示。“未识别”本身不是病毒检测结论。核对本仓库发布页和 SHA-256 后，若系统提供入口且你决定信任此下载，可自行选择“更多信息 → 仍要运行”。企业策略或 Smart App Control 阻止时，不要关闭全局保护；请联系设备管理员或等待符合设备策略的发行方式。参见 [Microsoft 官方说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
 
@@ -107,7 +114,7 @@ docs/            # 使用、架构、开发、隐私、发布说明
 - 支持 macOS 13+ 和 Windows 10/11 x64；Linux 暂未提供窗口跟随。macOS 最低版本遵循 [Electron 44 的支持范围](https://www.electronjs.org/blog/electron-44-0)。
 - macOS 前台窗口跟随已经本地验证；Windows 发布包由 Windows CI 构建与离线检查。CI 不能代替所有真实桌面、多屏、高 DPI 场景的人工验证。
 - Codex 的账号协议或应用目录变化可能需要更新。找不到 CLI 时可以在设置中指定，不会猜测并兑换另一条重置机会。
-- 当前应用没有自动更新器；请从 Releases 下载新版本。登录启动由用户选择。
+- 当前应用没有自动更新器；请从 [下载中心](DOWNLOADS.md) 选择对应系统的新版本。登录启动由用户选择。
 - GitHub 同步不是每个按键的即时镜像，而是保存后的检查、提交、拉取和推送；网络失败会延后，冲突需要人工解决。
 
 欢迎 [报告问题](https://github.com/aiximi/codex-quota-overlay/issues) 或提交 PR。贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。采用 [MIT License](LICENSE)。

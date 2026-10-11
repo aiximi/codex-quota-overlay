@@ -6,12 +6,10 @@ on:
       version:
         description: Windows release version (for example 2.0.1)
         required: true
-        default: '2.0.1'
         type: string
       source_ref:
         description: Full source commit SHA to build
         required: true
-        default: eadce9b9e7d1ef3ed7b0b62a6797a79fa97e65e5
         type: string
 
 permissions:
@@ -28,6 +26,8 @@ jobs:
     env:
       RELEASE_VERSION: ${{ inputs.version }}
       SOURCE_REF: ${{ inputs.source_ref }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       QUOTA_TARGET_ARCH: x64
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
@@ -35,7 +35,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') {
+          if ($env:RELEASE_VERSION -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
             throw 'Use a numeric version such as 2.0.1.'
           }
           if ($env:SOURCE_REF -notmatch '^[a-fA-F0-9]{40}$') {
@@ -45,6 +45,29 @@ jobs:
         with:
           ref: ${{ inputs.source_ref }}
           persist-credentials: false
+      - name: Validate the pinned source and release notes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $commit = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $commit -ne $env:SOURCE_REF.ToLowerInvariant()) {
+            throw 'The checkout does not match the requested source commit.'
+          }
+          $notesPath = "docs/releases/windows-v$env:RELEASE_VERSION.md"
+          git cat-file -e "$($env:SOURCE_REF):$notesPath"
+          if ($LASTEXITCODE -ne 0) { throw "The approved source must contain $notesPath." }
+          $notes = (git show "$($env:SOURCE_REF):$notesPath") -join "`n"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the approved release notes.' }
+          $changes = [regex]::Match($notes, '(?ms)^## 更新内容[ \t]*\r?$\n(?<changes>.*?)(?=^## |\z)')
+          if (-not $changes.Success -or $changes.Groups['changes'].Value -notmatch '(?m)^- \S') {
+            throw 'Release notes require a ## 更新内容 section with concrete top-level bullet points.'
+          }
+          $base = "https://github.com/$env:RELEASE_REPOSITORY/blob/$env:DEFAULT_BRANCH"
+          foreach ($document in @('DOWNLOADS.md', 'docs/VERSIONS.md')) {
+            if (-not $notes.Contains("$base/$document")) {
+              throw "Release notes must link to the unified $document page."
+            }
+          }
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -73,7 +96,7 @@ jobs:
             const { execFileSync } = require('node:child_process');
             const version = process.env.RELEASE_VERSION;
             const source = process.env.SOURCE_REF.toLowerCase();
-            if (!/^\d+\.\d+\.\d+$/.test(version) || !/^[a-f0-9]{40}$/.test(source)) {
+            if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(version) || !/^[a-f0-9]{40}$/.test(source)) {
               throw new Error('Invalid release inputs.');
             }
             const commit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -118,19 +141,15 @@ jobs:
             if (tagObject && (tagObject.type !== 'commit' || tagObject.sha !== commit)) {
               throw new Error('The existing release tag points to a different commit.');
             }
-            const body = [
-              `Windows ${version} 修复版，仅更新 Windows 安装包。`,
-              '',
-              '- 修复浮层无法点击、输入和额度显示异常。',
-              '- 修复 Windows 窗口跟随及 Codex CLI 自动查找。',
-              '- 安装版支持选择目录；也可使用 portable 免安装版。',
-              '- 安装前请退出旧浮层。',
-              '',
-              '[macOS 下载保持原 v2.0.0 版本不变](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.0.0)。',
-              '',
-              `源码提交：${commit}`,
-              '安装包已通过 Windows 自动化检查、界面测试及安装、启动、卸载验证。SHA256SUMS.txt 提供文件校验值。',
-            ].join('\n');
+            const notesPath = `docs/releases/${tag}.md`;
+            const notes = execFileSync('git', ['show', `${source}:${notesPath}`], { encoding: 'utf8' }).trim();
+            const documents = `https://github.com/${repo.owner}/${repo.repo}/blob/${process.env.DEFAULT_BRANCH}`;
+            for (const file of ['DOWNLOADS.md', 'docs/VERSIONS.md']) {
+              if (!notes.includes(`${documents}/${file}`)) {
+                throw new Error(`Release notes must link to the unified ${file} page.`);
+              }
+            }
+            const body = `${notes}\n\nSource commit: \`${commit}\`\n`;
             if (!release) {
               release = (await github.rest.repos.createRelease({
                 ...repo,
@@ -150,8 +169,15 @@ jobs:
               throw new Error('The draft contains unexpected assets; it was not published.');
             }
             for (const asset of assets) {
-              for (const old of existing.filter(({ name }) => name === asset.name)) {
-                await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: old.id });
+              const matching = existing.filter(({ name }) => name === asset.name);
+              if (matching.length > 1) throw new Error(`The draft has duplicate assets: ${asset.name}`);
+              if (matching.length === 1) {
+                const old = matching[0];
+                if (old.state !== 'uploaded' || old.size !== asset.data.length || old.digest !== `sha256:${asset.hash}`) {
+                  throw new Error(`Draft asset differs from this build; review it manually: ${asset.name}`);
+                }
+                core.info(`Reusing the identical, verified draft asset ${asset.name}.`);
+                continue;
               }
               const uploaded = (await github.rest.repos.uploadReleaseAsset({
                 ...repo,

@@ -74,17 +74,27 @@ QUOTA_TARGET_ARCH=x64 npm run package:mac -- --x64
 
 上传或修改 `.github/workflows/` 需要 GitHub 的 workflow 写入权限。使用 GitHub CLI 的维护者可以运行 `gh auth refresh --hostname github.com --scopes workflow`，在浏览器授权后再推送。普通下载用户不需要 GitHub 登录或这些权限。
 
-CI 对 macOS arm64、macOS x64、Windows x64 分别执行检查、UI 测试和打包。合并到 main 只生成 Actions 构建产物；推送版本标签时，所有平台成功后才发布 GitHub Release：
+CI 对 macOS arm64、macOS x64、Windows x64 分别执行检查、UI 测试和打包。合并到 main 通常只生成 Actions 构建产物；仅五个自动生成目录文件发生变化的 push 会跳过构建，PR 检查保持运行。对外统一使用 [下载入口](../DOWNLOADS.md) 和 [版本记录](VERSIONS.md)，每个平台、架构独立选择最新稳定版，不把 GitHub 的单个 “Latest” 标记当作所有平台的当前版本。
+
+当前源码的 `package.json` 基线仍是 `2.0.0`，macOS 最新发布为 `v2.0.0`，Windows 已单独发布 `windows-v2.0.1`。Windows 工作流通过打包元数据覆盖应用版本；这不会修改 macOS 包或历史标签。
+
+发布分为两条路径，完整步骤见 [发布维护说明](RELEASING.md)：
+
+- 全平台发布使用 `vX.Y.Z` 标签。标签必须与 `package.json` 版本一致，源码必须包含该标签对应的 `docs/releases/vX.Y.Z.md`；所有平台检查、打包成功后才发布。
+- Windows 独立发布在 Actions 运行 **Publish Windows release**，填写新版本号和已审核源码的完整 40 位提交 SHA。该提交必须已包含 `docs/releases/windows-vX.Y.Z.md`。发行包版本可独立于源码基线，发布标签为 `windows-vX.Y.Z`。
+
+每份版本说明都必须链接稳定的 `DOWNLOADS.md` 和 `docs/VERSIONS.md` 页面。已发布版本的标签、安装包和校验和保留原样；修复后使用新版本，不能覆盖旧资产。
+
+发布后 **Update download catalog** 会从公开 Releases 更新下载入口、版本历史及 README 的生成区域。它使用默认分支上的生成器，检查校验信息后仅提交五个目录文件。维护时可离线检查生成结果：
 
 ```sh
-# 先更新 package.json、package-lock.json、CHANGELOG.md 与发布说明
-npm run check
-npm run test:ui
-git add package.json package-lock.json CHANGELOG.md docs/RELEASE-NOTES.md
-git commit -m "Release 2.0.1"
-git tag v2.0.1
-git push origin main v2.0.1
+node scripts/releases/catalog.mjs
+node scripts/releases/catalog.mjs --check
 ```
+
+需要主动读取公开发行记录时使用 `node scripts/releases/catalog.mjs --fetch`；这会通过已配置的 GitHub CLI 获取发行数据，不执行打包或重新发布。
+
+目录成功推送或确认无变化后，同一任务会更新每个公开稳定 Release 顶部的统一导航，显示各平台当前下载项。旧版本的原始说明、附件和标签仍保留。
 
 当前发行包未进行 Developer ID 公证或 Windows Authenticode 签名。若后续加入签名，应将证书与密码放 GitHub Actions Secrets，不提交到仓库；同步修改安装说明。Windows CI 不能证明所有真实桌面场景均兼容。
 
@@ -94,7 +104,7 @@ git push origin main v2.0.1
 
 Windows 构建完成后，CI 会运行 `scripts/test-windows-install.ps1`，验证真实 NSIS 目录选择页、自定义位置安装、安装后的离线启动及卸载。安装验证只用于隔离的 GitHub Actions Windows 环境，不应在装有正式版本的日常电脑上执行。
 
-要验证已经发布的安装包，在 GitHub Actions 中运行 **Verify published Windows installer**，填写版本标签（例如 `v2.0.0`）。它会下载该版本的正式 `setup.exe`，先与同一发布页的 `SHA256SUMS.txt` 核对，再执行安装验证。证据保存在 `windows-installation-evidence` 构建产物中。这样能区分源码测试、新构建包测试与正式下载包测试。
+要验证已经发布的安装包，在 GitHub Actions 中运行 **Verify published Windows installer**，填写版本标签（例如 `v2.0.0` 或 `windows-v2.0.1`）。它会下载该版本的正式 `setup.exe`，先与同一发布页的 `SHA256SUMS.txt` 核对，再执行安装验证。证据保存在 `windows-installation-evidence` 构建产物中。这样能区分源码测试、新构建包测试与正式下载包测试。
 
 这些检查不等于 SmartScreen 放行认证。CI 中的安装测试不会关闭 Defender、SmartScreen 或更改系统防护设置；下载信誉和组织策略仍会影响用户首次运行。参考 [微软的 SmartScreen 说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
 
@@ -104,4 +114,6 @@ Windows 构建完成后，CI 会运行 `scripts/test-windows-install.ps1`，验�
 
 Use Node.js 22.12+, npm and Git 2.38+; automatic synchronization requires `git merge-tree --write-tree` for conflict checks. Open the repository root in IDEA, select the Node interpreter, and use the shared `.run` configurations. Local IDE paths remain ignored. Run `npm ci`, then `npm run preview` for safe offline development; `npm run dev` uses the actual signed-in account. All reset testing must use fake transports, never real credits.
 
-`npm run check` performs type, format, and offline tests. `npm run test:ui` launches a separate Electron preview with isolated settings. Build packages on the corresponding OS. Release tags run all matrix builds before uploading binaries and checksums. No signing secrets belong in Git.
+`npm run check` performs type, format, and offline tests. `npm run test:ui` launches a separate Electron preview with isolated settings. Build packages on the corresponding OS. The [download catalog](../DOWNLOADS.md) selects the latest stable version separately for each platform and architecture; [version history](VERSIONS.md) keeps previous downloads. The source baseline is currently 2.0.0, while Windows 2.0.1 was published independently using a packaging metadata override.
+
+Full releases use `vX.Y.Z`, require a matching `package.json` version, and run all matrix builds. Windows-only releases use **Publish Windows release** with a version and an approved full source SHA. Both require a committed `docs/releases/<tag>.md` with stable links to the download catalog and version history. Published tags, assets, and checksums must never be replaced. The trusted default-branch catalog workflow refreshes its five generated files after publication; `node scripts/releases/catalog.mjs --check` verifies them offline. See [RELEASING.md](RELEASING.md) for the release and recovery procedure. No signing secrets belong in Git.
