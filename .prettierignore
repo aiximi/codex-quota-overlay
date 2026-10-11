@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+release
+package-lock.json
+test-results
+playwright-report
+.idea
+native
+assets/*.png
+assets/*.icns
+assets/*.ico
+assets/screenshots

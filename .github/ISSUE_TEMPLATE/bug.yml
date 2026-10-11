@@ -1,0 +1,23 @@
+name: Bug report / 问题反馈
+description: Report an issue without account credentials or private data.
+body:
+  - type: input
+    id: system
+    attributes:
+      label: OS and app version / 系统与版本
+      placeholder: macOS 15 arm64, overlay 2.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps and expected behavior / 重现步骤与预期
+      description: Never attach auth.json, access tokens, account identifiers, or private logs.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened / 实际表现
+    validations:
+      required: true

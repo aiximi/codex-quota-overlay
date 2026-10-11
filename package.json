@@ -1,0 +1,113 @@
+{
+  "name": "codex-quota-overlay",
+  "productName": "Codex Quota Overlay",
+  "version": "2.0.0",
+  "description": "A private, compact desktop quota overlay for Codex on macOS and Windows.",
+  "author": "aiximi",
+  "license": "MIT",
+  "private": true,
+  "main": "dist/main/index.cjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aiximi/codex-quota-overlay.git"
+  },
+  "homepage": "https://github.com/aiximi/codex-quota-overlay#readme",
+  "bugs": {
+    "url": "https://github.com/aiximi/codex-quota-overlay/issues"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "npm run build && electron .",
+    "preview": "npm run build && electron . --preview",
+    "build": "node scripts/build.mjs",
+    "build:native": "node scripts/build-native.mjs",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "tsx --test tests/**/*.test.ts tests/**/*.test.mjs",
+    "test:ui": "npm run build && playwright test",
+    "check": "npm run typecheck && npm run format:check && npm test",
+    "package": "npm run build && electron-builder --publish never",
+    "package:mac": "npm run build && electron-builder --mac --publish never",
+    "package:win": "npm run build && electron-builder --win --publish never",
+    "sync": "node scripts/git-sync.mjs --once",
+    "sync:watch": "node scripts/git-sync.mjs --watch",
+    "sync:status": "node scripts/git-sync.mjs --status",
+    "sync:resume": "node scripts/git-sync.mjs --resume",
+    "sync:install": "node scripts/install-sync.mjs",
+    "sync:uninstall": "node scripts/install-sync.mjs --uninstall"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.18.6",
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
+    "prettier": "3.9.10",
+    "tsx": "^4.20.6",
+    "typescript": "7.0.2"
+  },
+  "build": {
+    "appId": "io.github.aiximi.codexquota",
+    "productName": "Codex Quota Overlay",
+    "artifactName": "Codex-Quota-Overlay-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "extraResources": [
+      {
+        "from": "build/native",
+        "to": "native"
+      }
+    ],
+    "asar": true,
+    "mac": {
+      "icon": "assets/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "minimumSystemVersion": "13.0",
+      "extendInfo": {
+        "LSUIElement": true
+      }
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Codex-Quota-Overlay-${version}-windows-${arch}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Codex-Quota-Overlay-${version}-windows-${arch}-portable.${ext}"
+    },
+    "publish": null
+  },
+  "overrides": {
+    "@electron/get": "5.1.0"
+  },
+  "allowScripts": {
+    "electron@44.7.0": true,
+    "esbuild@0.28.2": true
+  }
+}
