@@ -16,6 +16,8 @@ npm run preview
 
 Electron 44 会在首次使用时下载其官方运行时，后续复用缓存。首次安装需要网络。npm 12 的安装脚本白名单在 `package.json` 中，避免全局允许所有依赖脚本。若下载失败，修复现有网络/代理后重试；不要禁用 TLS 校验。
 
+若已配置 `HTTP_PROXY` / `HTTPS_PROXY`，构建时可设置 `ELECTRON_GET_USE_PROXY=true` 让 Electron 下载器使用它们。这里必须使用 `true`，不能用 `1`。Git 的代理是独立配置，见 [SYNC.md](SYNC.md)。
+
 ## IDEA 一键运行
 
 1. **File → Open**，选择仓库根目录，而不是 `src` 或生成目录。
@@ -50,6 +52,15 @@ npm run package:win
 `scripts/build.mjs` 将主进程和 preload 打包为 CJS，界面打包为浏览器脚本，再复制 HTML/CSS。mac helper 使用 `QUOTA_TARGET_ARCH=arm64` 或 `x64` 选择构建架构；Windows helper 是固定随包脚本。
 
 构建目录：`dist/` 为 JS 与界面，`build/native/` 为 helper，`release/` 为安装包。它们不进入 Git。
+
+在 Mac 上指定架构时，helper 与应用必须选择同一个架构，例如：
+
+```sh
+QUOTA_TARGET_ARCH=arm64 npm run package:mac -- --arm64
+QUOTA_TARGET_ARCH=x64 npm run package:mac -- --x64
+```
+
+上传或修改 `.github/workflows/` 需要 GitHub 的 workflow 写入权限。使用 GitHub CLI 的维护者可以运行 `gh auth refresh --hostname github.com --scopes workflow`，在浏览器授权后再推送。普通下载用户不需要 GitHub 登录或这些权限。
 
 CI 对 macOS arm64、macOS x64、Windows x64 分别执行检查、UI 测试和打包。合并到 main 只生成 Actions 构建产物；推送版本标签时，所有平台成功后才发布 GitHub Release：
 
