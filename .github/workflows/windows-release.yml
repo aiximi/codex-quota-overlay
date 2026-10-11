@@ -68,7 +68,7 @@ jobs:
               throw "Release notes must link to the unified $document page."
             }
           }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
