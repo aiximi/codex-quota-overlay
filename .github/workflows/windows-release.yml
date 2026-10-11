@@ -1,0 +1,194 @@
+name: Publish Windows release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Windows release version (for example 2.0.1)
+        required: true
+        default: '2.0.1'
+        type: string
+      source_ref:
+        description: Full source commit SHA to build
+        required: true
+        default: eadce9b9e7d1ef3ed7b0b62a6797a79fa97e65e5
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+      QUOTA_TARGET_ARCH: x64
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Validate release inputs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') {
+            throw 'Use a numeric version such as 2.0.1.'
+          }
+          if ($env:SOURCE_REF -notmatch '^[a-fA-F0-9]{40}$') {
+            throw 'Use the full 40-character source commit SHA.'
+          }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:ui
+      - name: Build Windows packages
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          npx electron-builder --win --x64 --publish never "--config.extraMetadata.version=$env:RELEASE_VERSION" --config.directories.output=release/windows-release
+          if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed.' }
+      - name: Verify installation, custom directory and startup
+        shell: pwsh
+        run: |
+          $installer = Join-Path $pwd "release/windows-release/Codex-Quota-Overlay-$env:RELEASE_VERSION-windows-x64-setup.exe"
+          ./scripts/test-windows-install.ps1 -InstallerPath $installer
+      - name: Publish verified Windows assets
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs/promises');
+            const path = require('node:path');
+            const { createHash } = require('node:crypto');
+            const { execFileSync } = require('node:child_process');
+            const version = process.env.RELEASE_VERSION;
+            const source = process.env.SOURCE_REF.toLowerCase();
+            if (!/^\d+\.\d+\.\d+$/.test(version) || !/^[a-f0-9]{40}$/.test(source)) {
+              throw new Error('Invalid release inputs.');
+            }
+            const commit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+            if (commit !== source) throw new Error('The checkout does not match the requested commit.');
+            const tag = `windows-v${version}`;
+            const repo = context.repo;
+            const folder = path.resolve('release/windows-release');
+            const names = [
+              `Codex-Quota-Overlay-${version}-windows-x64-setup.exe`,
+              `Codex-Quota-Overlay-${version}-windows-x64-portable.exe`,
+            ];
+            const assets = [];
+            for (const name of names) {
+              const data = await fs.readFile(path.join(folder, name));
+              if (data.length < 1000000) throw new Error(`Package is unexpectedly small: ${name}`);
+              assets.push({ name, data, hash: createHash('sha256').update(data).digest('hex') });
+            }
+            const checksums = Buffer.from(assets.map(({ name, hash }) => `${hash}  ${name}\n`).join(''));
+            await fs.writeFile(path.join(folder, 'SHA256SUMS.txt'), checksums);
+            assets.push({
+              name: 'SHA256SUMS.txt',
+              data: checksums,
+              hash: createHash('sha256').update(checksums).digest('hex'),
+            });
+            // Inspect drafts as well as public releases before changing anything.
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...repo, per_page: 100 });
+            let release = releases.find((item) => item.tag_name === tag);
+            if (release && !release.draft) throw new Error(`${tag} is already published; no assets were changed.`);
+            if (release) {
+              const target = await github.rest.repos.getCommit({ ...repo, ref: release.target_commitish });
+              if (target.data.sha !== commit) throw new Error('The existing draft targets a different commit.');
+            }
+            let tagObject;
+            try {
+              tagObject = (await github.rest.git.getRef({ ...repo, ref: `tags/${tag}` })).data.object;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            while (tagObject?.type === 'tag') {
+              tagObject = (await github.rest.git.getTag({ ...repo, tag_sha: tagObject.sha })).data.object;
+            }
+            if (tagObject && (tagObject.type !== 'commit' || tagObject.sha !== commit)) {
+              throw new Error('The existing release tag points to a different commit.');
+            }
+            const body = [
+              `Windows ${version} 修复版，仅更新 Windows 安装包。`,
+              '',
+              '- 修复浮层无法点击、输入和额度显示异常。',
+              '- 修复 Windows 窗口跟随及 Codex CLI 自动查找。',
+              '- 安装版支持选择目录；也可使用 portable 免安装版。',
+              '- 安装前请退出旧浮层。',
+              '',
+              '[macOS 下载保持原 v2.0.0 版本不变](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.0.0)。',
+              '',
+              `源码提交：${commit}`,
+              '安装包已通过 Windows 自动化检查、界面测试及安装、启动、卸载验证。SHA256SUMS.txt 提供文件校验值。',
+            ].join('\n');
+            if (!release) {
+              release = (await github.rest.repos.createRelease({
+                ...repo,
+                tag_name: tag,
+                target_commitish: commit,
+                name: `Codex Quota Overlay ${version} — Windows`,
+                body,
+                draft: true,
+                prerelease: false,
+              })).data;
+            }
+            const existing = await github.paginate(github.rest.repos.listReleaseAssets, {
+              ...repo, release_id: release.id, per_page: 100,
+            });
+            const expectedNames = new Set(assets.map(({ name }) => name));
+            if (existing.some(({ name }) => !expectedNames.has(name))) {
+              throw new Error('The draft contains unexpected assets; it was not published.');
+            }
+            for (const asset of assets) {
+              for (const old of existing.filter(({ name }) => name === asset.name)) {
+                await github.rest.repos.deleteReleaseAsset({ ...repo, asset_id: old.id });
+              }
+              const uploaded = (await github.rest.repos.uploadReleaseAsset({
+                ...repo,
+                release_id: release.id,
+                name: asset.name,
+                data: asset.data,
+                headers: {
+                  'content-type': asset.name.endsWith('.txt') ? 'text/plain' : 'application/octet-stream',
+                  'content-length': asset.data.length,
+                },
+              })).data;
+              const verified = (await github.rest.repos.getReleaseAsset({ ...repo, asset_id: uploaded.id })).data;
+              if (verified.state !== 'uploaded' || verified.size !== asset.data.length ||
+                  verified.digest !== `sha256:${asset.hash}`) {
+                throw new Error(`GitHub asset verification failed: ${asset.name}`);
+              }
+              core.info(`Verified ${asset.name}: ${verified.size} bytes, ${verified.digest}`);
+            }
+            const published = (await github.rest.repos.updateRelease({
+              ...repo,
+              release_id: release.id,
+              tag_name: tag,
+              target_commitish: commit,
+              name: `Codex Quota Overlay ${version} — Windows`,
+              body,
+              draft: false,
+              prerelease: false,
+              make_latest: 'true',
+            })).data;
+            core.info(`Published ${published.html_url}`);
+            await core.summary.addLink('Download Windows release', published.html_url).write();
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-release-evidence
+          path: |
+            test-results/
+            playwright-report/
+            release/windows-release/SHA256SUMS.txt
+          if-no-files-found: ignore
