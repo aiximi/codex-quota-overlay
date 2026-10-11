@@ -24,7 +24,7 @@ npm run sync:install
 npm run sync:uninstall
 ```
 
-安装软件、下载源码、执行 `npm ci` 或打开 IDEA 都不会自动安装同步服务。只有明确执行 `sync:install` 才启用后台服务。请先按开发文档完成依赖安装，并确认 `npm run check` 通过。
+安装软件、下载源码、执行 `npm ci` 或打开 IDEA 都不会自动安装同步服务。只有明确执行 `sync:install` 才启用后台服务。请先按开发文档完成依赖安装，并确认 `npm run check` 通过。自动同步需要 **Git 2.38+**，以使用 `git merge-tree --write-tree` 在不修改工作目录的情况下预检合并冲突；可用 `git --version` 检查。
 
 ## 同步行为
 

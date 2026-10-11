@@ -35,7 +35,7 @@ The current authentication adapter supports ChatGPT credentials in `CODEX_HOME/a
 
 ## Develop
 
-Requires Node.js 22.12+, npm and Git; macOS additionally needs Xcode Command Line Tools for its window helper. Downloaded apps include their runtime.
+Requires Node.js 22.12+, npm and Git 2.38+; macOS additionally needs Xcode Command Line Tools for its window helper. Downloaded apps include their runtime.
 
 ```sh
 git clone https://github.com/aiximi/codex-quota-overlay.git

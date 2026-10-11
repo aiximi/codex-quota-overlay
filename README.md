@@ -55,7 +55,7 @@ macOS 同时提供 ZIP。使用发布页的 `SHA256SUMS.txt` 校验下载文件�
 
 ## 本地开发
 
-需要 Node.js 22.12+、npm、Git；macOS 构建需要 Xcode Command Line Tools。正式下载的应用已内置运行时，普通用户不需要 Node.js。
+需要 Node.js 22.12+、npm、Git 2.38+；macOS 构建需要 Xcode Command Line Tools。正式下载的应用已内置运行时，普通用户不需要 Node.js。
 
 ```sh
 git clone https://github.com/aiximi/codex-quota-overlay.git

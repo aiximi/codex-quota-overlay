@@ -2,7 +2,7 @@
 
 ## 环境
 
-- Node.js **22.12+**，npm，Git。
+- Node.js **22.12+**，npm，Git **2.38+**。自动同步的冲突预检使用 `git merge-tree --write-tree`，需要这个 Git 版本。
 - macOS：`xcode-select --install` 安装 Command Line Tools。Swift helper 只需系统 AppKit。
 - Windows：PowerShell 5.1（Windows 自带）；开发 Node/Electron 不依赖 Java、Visual Studio 或额外 C++ 插件。
 - IDEA 安装并启用 JavaScript、Node.js、Git 插件。其他支持 Node 的编辑器同样可用。
@@ -78,6 +78,6 @@ git push origin main v2.0.1
 
 ## English
 
-Open the repository root in IDEA, select a Node.js 22.12+ interpreter, and use the shared `.run` configurations. Local IDE paths remain ignored. Run `npm ci`, then `npm run preview` for safe offline development; `npm run dev` uses the actual signed-in account. All reset testing must use fake transports, never real credits.
+Use Node.js 22.12+, npm and Git 2.38+; automatic synchronization requires `git merge-tree --write-tree` for conflict checks. Open the repository root in IDEA, select the Node interpreter, and use the shared `.run` configurations. Local IDE paths remain ignored. Run `npm ci`, then `npm run preview` for safe offline development; `npm run dev` uses the actual signed-in account. All reset testing must use fake transports, never real credits.
 
 `npm run check` performs type, format, and offline tests. `npm run test:ui` launches a separate Electron preview with isolated settings. Build packages on the corresponding OS. Release tags run all matrix builds before uploading binaries and checksums. No signing secrets belong in Git.
