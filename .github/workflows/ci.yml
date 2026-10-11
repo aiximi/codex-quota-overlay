@@ -54,6 +54,10 @@ jobs:
       - run: npm run test:ui
       - name: Build downloadable packages
         run: npx electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never
+      - name: Verify Windows installation and custom directory
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-install.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: packages-${{ matrix.platform }}-${{ matrix.arch }}

@@ -76,6 +76,18 @@ git push origin main v2.0.1
 
 当前发行包未进行 Developer ID 公证或 Windows Authenticode 签名。若后续加入签名，应将证书与密码放 GitHub Actions Secrets，不提交到仓库；同步修改安装说明。Windows CI 不能证明所有真实桌面场景均兼容。
 
+### Windows 安装验证与签名限制
+
+申请渠道、费用、地区限制和办理步骤见 [Windows 代码签名指南](WINDOWS-SIGNING.md)。
+
+Windows 构建完成后，CI 会运行 `scripts/test-windows-install.ps1`，验证真实 NSIS 目录选择页、自定义位置安装、安装后的离线启动及卸载。安装验证只用于隔离的 GitHub Actions Windows 环境，不应在装有正式版本的日常电脑上执行。
+
+要验证已经发布的安装包，在 GitHub Actions 中运行 **Verify published Windows installer**，填写版本标签（例如 `v2.0.0`）。它会下载该版本的正式 `setup.exe`，先与同一发布页的 `SHA256SUMS.txt` 核对，再执行安装验证。证据保存在 `windows-installation-evidence` 构建产物中。这样能区分源码测试、新构建包测试与正式下载包测试。
+
+这些检查不等于 SmartScreen 放行认证。CI 中的安装测试不会关闭 Defender、SmartScreen 或更改系统防护设置；下载信誉和组织策略仍会影响用户首次运行。参考 [微软的 SmartScreen 说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
+
+正式签名还需要经过身份验证的代码签名证书或签名服务。目前仓库没有配置签名凭据，发行包保持明确标注的未签名状态。自签名证书不能解决公开分发的信誉问题，有效签名也不保证新文件立刻没有提示。获得签名资源后，应配置 electron-builder 26 的签名选项并启用 `forceCodeSigning`，同时验证安装器、便携版和包内程序的 Authenticode 状态；签名失败应中止发布，不能静默退回未签名包。
+
 ## English
 
 Use Node.js 22.12+, npm and Git 2.38+; automatic synchronization requires `git merge-tree --write-tree` for conflict checks. Open the repository root in IDEA, select the Node interpreter, and use the shared `.run` configurations. Local IDE paths remain ignored. Run `npm ci`, then `npm run preview` for safe offline development; `npm run dev` uses the actual signed-in account. All reset testing must use fake transports, never real credits.

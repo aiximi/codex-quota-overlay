@@ -18,7 +18,11 @@ Download from [GitHub Releases](https://github.com/aiximi/codex-quota-overlay/re
 - Windows 10/11 x64: `*-windows-x64-setup.exe` or `*-windows-x64-portable.exe`.
 - Verify the file using the accompanying `SHA256SUMS.txt`.
 
-Builds are not Apple Developer ID notarized or Windows Authenticode signed. The operating system may warn about an unknown publisher. Verify the source and checksum, then use the OS's per-app approval interface; do not disable system-wide security.
+Builds are not Apple Developer ID notarized or Windows Authenticode signed. The operating system may warn about an unknown publisher. Verify the source and checksum. Where offered, use only the OS's per-app approval interface; do not disable system-wide security.
+
+**Choose a Windows drive:** Run `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe`. On the installer's directory page, use **Browse** or enter a path such as `D:\Apps\Codex Quota Overlay`. Your account needs write permission to the selected directory. The `portable.exe` has no installation-directory page: place it on your preferred drive and run it there. User data still lives in `%APPDATA%\Codex Quota Overlay\`.
+
+**“Unrecognized app” before the installer:** Current packages are unsigned and new versions need SmartScreen reputation; signing would not guarantee warning-free releases. This warning alone is not a malware verdict. After verifying this repository's release and SHA-256, you may choose **More info → Run anyway** if Windows offers it and you trust the download. If enterprise policy or Smart App Control blocks execution, keep global protection enabled and contact your administrator or wait for a release that meets your device's policy. See [Microsoft's explanation](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation) and the [installation guide](docs/USAGE.md).
 
 Install and sign in to official Codex first. Start the overlay, switch to Codex, and expand the capsule. Use the tray/menu-bar Settings entry to change language, configure login startup, set the refresh interval, or choose a native Codex executable.
 

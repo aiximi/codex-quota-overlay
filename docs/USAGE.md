@@ -10,9 +10,7 @@
 
 仅从本项目 [Releases](https://github.com/aiximi/codex-quota-overlay/releases/latest) 下载对应架构文件。macOS 在“关于本机”查看芯片类型；Windows 下载 x64 安装版或便携版。
 
-macOS 打开 DMG 后将应用拖到 Applications。Windows 运行 `setup.exe`，默认按当前用户安装；便携版无需安装。首次启动只需同意操作系统针对该应用的允许提示，不需要管理员身份、不需要禁用系统级安全功能。
-
-当前构建为社区未公证/未 Authenticode 签名版本。macOS 可以在“系统设置 → 隐私与安全性”查看该应用的允许打开入口；Windows 可以查看文件发布者和下载来源。若企业策略阻止运行，请联系设备管理员，不要绕过组织策略。
+macOS 打开 DMG 后将应用拖到 Applications。当前 macOS 构建没有 Apple Developer ID 公证，可以在“系统设置 → 隐私与安全性”查看该应用的允许打开入口。
 
 校验示例（将文件名换成实际下载文件）：
 
@@ -27,6 +25,27 @@ Get-FileHash .\Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe -Algorithm SHA256
 ```
 
 将输出与同一发布页的 `SHA256SUMS.txt` 对照。
+
+### Windows 安装版：选择盘符和目录
+
+1. 下载 `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe` 并核对 SHA-256。
+2. 运行文件；如出现 SmartScreen 提示，先按下节核对并决定是否继续。**此提示发生在安装向导之前，还没有进入目录选择页。**
+3. 在安装向导的目录选择页点击“浏览”，或直接填写目标目录，例如 `D:\Apps\Codex Quota Overlay`。也可以选择其他存在的盘符。
+4. 当前账号对目标目录有写权限即可按当前用户安装；如果目录不可写，请选择有权限的位置，再继续安装。
+
+### Windows 便携版
+
+`Codex-Quota-Overlay-2.0.0-windows-x64-portable.exe` 无需安装，也没有安装目录选择页。把文件放到想用的盘符，例如 `D:\Apps\Codex Quota Overlay\`，再双击运行即可。
+
+“便携”指无需安装程序；设置、订阅记录和重置状态仍保存在当前用户的 `%APPDATA%\Codex Quota Overlay\`，不会随 EXE 一起移动。安装版选择其他盘符也不会改变该用户数据位置。
+
+### Windows SmartScreen“未识别的应用”
+
+当前 Windows 包未经过 Authenticode 签名，新版本尚需积累下载信誉；签名也不保证新文件不会出现 SmartScreen 提示。“未识别的应用”本身不是病毒检测结论，也不能据此证明文件安全。参见 [Microsoft 的 SmartScreen 信誉说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
+
+确认文件来自本仓库的发布页，且 SHA-256 与同一发布页一致后，如果你决定信任此下载，并且系统提供该入口，可以自行点击 **“更多信息 → 仍要运行”**，随后才会打开安装向导或便携应用。校验值用于确认文件与发布包一致，不能代替来源判断。
+
+如果企业策略或 Windows 11 的 **Smart App Control** 直接阻止运行，可能没有“仍要运行”选项。请联系设备管理员，或等待符合设备策略的发行方式；**不要为了安装本应用关闭 SmartScreen、Smart App Control 或其他全局安全保护**。本版本没有宣称解决或绕过这些系统限制。
 
 ## 日常操作
 
@@ -52,16 +71,18 @@ Get-FileHash .\Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe -Algorithm SHA256
 
 ## 常见问题
 
-| 情况                    | 处理                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------ |
-| 看不到浮层              | 确认正在使用官方 Codex 且窗口不是最小化；托盘 → 恢复位置；重启浮层。                             |
-| 找不到 CLI              | 设置中选择 Codex 安装目录内真实的 `codex` / `codex.exe`，不要选 `.cmd` 或 shell 脚本。           |
-| 提示先登录              | 确认 ChatGPT 登录信息存储于 `~/.codex/auth.json` 或 `CODEX_HOME` 对应目录；不支持 API key 方式。 |
-| 订阅日期未获取          | 此接口可能不可用，在设置中按账单填写日期。                                                       |
-| 重置按钮灰色            | 等待同步；检查机会是否到期、已处理，或有上次结果待确认。预览模式始终禁用。                       |
-| 网络失败                | 保留上次用量并标记错误。检查现有系统代理和网络，稍后手动刷新。                                   |
-| Windows helper 启动失败 | 检查是否被组织脚本策略限制。helper 的进程级策略不修改系统策略，也不覆盖组织策略。                |
-| Codex 更新后无法使用    | 报告应用和系统版本，附重现步骤；不要上传 token、auth.json 或私人日志。                           |
+| 情况                     | 处理                                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| 看不到浮层               | 确认正在使用官方 Codex 且窗口不是最小化；托盘 → 恢复位置；重启浮层。                             |
+| 找不到 CLI               | 设置中选择 Codex 安装目录内真实的 `codex` / `codex.exe`，不要选 `.cmd` 或 shell 脚本。           |
+| 提示先登录               | 确认 ChatGPT 登录信息存储于 `~/.codex/auth.json` 或 `CODEX_HOME` 对应目录；不支持 API key 方式。 |
+| 订阅日期未获取           | 此接口可能不可用，在设置中按账单填写日期。                                                       |
+| 重置按钮灰色             | 等待同步；检查机会是否到期、已处理，或有上次结果待确认。预览模式始终禁用。                       |
+| 网络失败                 | 保留上次用量并标记错误。检查现有系统代理和网络，稍后手动刷新。                                   |
+| Windows helper 启动失败  | 检查是否被组织脚本策略限制。helper 的进程级策略不修改系统策略，也不覆盖组织策略。                |
+| Windows 没有出现目录选择 | 先确认下载的是 `setup.exe`；SmartScreen 提示在安装向导之前，`portable.exe` 没有目录选择页。      |
+| Windows 安装目录不可写   | 在向导中浏览到当前账号有写权限的目录，例如 `D:\Apps\Codex Quota Overlay`。                       |
+| Codex 更新后无法使用     | 报告应用和系统版本，附重现步骤；不要上传 token、auth.json 或私人日志。                           |
 
 ## 更新与卸载
 
@@ -75,4 +96,19 @@ Install official Codex and sign in with a supported ChatGPT file-based login. Do
 
 Each Reset button selects one credit and opens a confirmation whose default is Cancel. The app never automatically redeems credits. Network uncertainty retains the operation ID; retry the same item after reviewing refreshed data. Preview is fully offline and cannot redeem a real credit.
 
-Subscription dates are best-effort official lookups or explicitly labelled cached/manual entries. Set a date manually if the account endpoint is unavailable. To update, quit and install the new release. Community packages are currently unsigned/unnotarized; use only OS per-app approval after verifying the source, never disable global security.
+Subscription dates are best-effort official lookups or explicitly labelled cached/manual entries. Set a date manually if the account endpoint is unavailable. To update, quit and install the new release.
+
+### Windows installation and drive selection
+
+1. Download `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe` from this repository's Releases and compare its SHA-256 with the matching `SHA256SUMS.txt`.
+2. Run the file. Any SmartScreen warning appears **before** the installation wizard and its directory page.
+3. On the directory page, choose **Browse** or enter a location such as `D:\Apps\Codex Quota Overlay`. You may select another drive. Installation is per-user; your account needs write permission to that directory.
+4. Continue through the wizard. If the directory is not writable, choose a location your account can write to.
+
+`Codex-Quota-Overlay-2.0.0-windows-x64-portable.exe` has no installation-directory selection. Place it on your preferred drive and run it there. Both versions keep settings, subscription entries and reset state in `%APPDATA%\Codex Quota Overlay\`; moving the executable does not move this data.
+
+### Windows SmartScreen warning
+
+Current Windows builds are unsigned. New files need reputation, and signing would not guarantee no warnings. “Unrecognized app” alone is not a malware verdict or a guarantee of safety. See [Microsoft's guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
+
+After checking the release source and SHA-256, you may select **More info → Run anyway** if offered and you trust the download. Enterprise policy or Smart App Control may prevent this option. Keep global protection enabled; contact your administrator or wait for a release that meets your device's policy. This release does not claim to remove or bypass those restrictions.

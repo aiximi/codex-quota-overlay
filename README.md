@@ -31,10 +31,14 @@
 | ------------------------ | ---------------------------- | ----------------------- |
 | macOS Apple Silicon      | `*-mac-arm64.dmg`            | 打开后拖到 Applications |
 | macOS Intel              | `*-mac-x64.dmg`              | 打开后拖到 Applications |
-| Windows 10/11 x64        | `*-windows-x64-setup.exe`    | 按安装向导完成          |
-| Windows 10/11 x64 便携版 | `*-windows-x64-portable.exe` | 直接运行                |
+| Windows 10/11 x64        | `*-windows-x64-setup.exe`    | 在向导中选择安装目录    |
+| Windows 10/11 x64 便携版 | `*-windows-x64-portable.exe` | 放到所需盘符后直接运行  |
 
 macOS 同时提供 ZIP。使用发布页的 `SHA256SUMS.txt` 校验下载文件。当前发行包没有 Apple Developer ID 公证或 Windows Authenticode 证书，系统可能提示未知开发者；请确认下载来源与校验值，在系统提供的单应用允许入口继续，**不需要关闭全局安全设置**。详见 [安装与故障排查](docs/USAGE.md)。
+
+**Windows 选择盘符：** 下载 `Codex-Quota-Overlay-2.0.0-windows-x64-setup.exe`，进入安装向导的目录选择页，点击“浏览”或填写 `D:\Apps\Codex Quota Overlay` 等位置，当前账号对目标目录有写权限即可。`portable.exe` 不显示安装目录选择，可以直接放到所需盘符；设置等用户数据仍保存在 `%APPDATA%\Codex Quota Overlay\`。
+
+**Windows 提示“未识别的应用”：** SmartScreen 在安装向导之前检查下载文件。当前包未签名，新版本需要积累信誉；即使以后签名，也不能保证新版本不再提示。“未识别”本身不是病毒检测结论。核对本仓库发布页和 SHA-256 后，若系统提供入口且你决定信任此下载，可自行选择“更多信息 → 仍要运行”。企业策略或 Smart App Control 阻止时，不要关闭全局保护；请联系设备管理员或等待符合设备策略的发行方式。参见 [Microsoft 官方说明](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)。
 
 ### 首次使用
 
