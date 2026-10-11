@@ -209,7 +209,7 @@ jobs:
             })).data;
             core.info(`Published ${published.html_url}`);
             await core.summary.addLink('Download Windows release', published.html_url).write();
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: windows-release-evidence

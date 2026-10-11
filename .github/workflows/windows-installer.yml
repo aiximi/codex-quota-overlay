@@ -44,7 +44,7 @@ jobs:
         run: ./scripts/test-windows-install.ps1
       - name: Save installation verification evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installation-evidence
           path: test-results/windows-installation/
