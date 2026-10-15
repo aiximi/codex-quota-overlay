@@ -5,6 +5,7 @@ release/
 coverage/
 test-results/
 playwright-report/
+out/
 .idea/*
 !.idea/vcs.xml
 .DS_Store
