@@ -87,7 +87,7 @@ jobs:
           $installer = Join-Path $pwd "release/windows-release/Codex-Quota-Overlay-$env:RELEASE_VERSION-windows-x64-setup.exe"
           ./scripts/test-windows-install.ps1 -InstallerPath $installer
       - name: Publish verified Windows assets
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('node:fs/promises');
