@@ -43,7 +43,18 @@ function terminate(child: ChildProcessWithoutNullStreams): void {
   timer.unref();
 }
 
-/** One short-lived official CLI child per operation. No requests are retried. */
+/** Retain only safe protocol metadata; raw service messages can contain account data. */
+class ServiceRequestError extends Error {
+  constructor(
+    message: string,
+    readonly method: string,
+    readonly code: unknown,
+  ) {
+    super(message);
+  }
+}
+
+/** One official CLI child per request. Mutations are never retried automatically. */
 export class CodexClient {
   private running = false;
   private stopped = false;
@@ -69,16 +80,36 @@ export class CodexClient {
         }));
   }
 
-  async readLimits(): Promise<QuotaSnapshot> {
-    return parseQuota(
-      await this.request(
-        'account/rateLimits/read',
-        // The Windows desktop CLI defines this request as parameterless.
-        // An object is rejected before any quota is read. Preserve the existing
-        // macOS request shape, which supports explicit reset-credit details.
-        this.platform === 'win32' ? null : { excludeResetCreditDetails: false },
-      ),
-    );
+  async readLimits(expectedAccountID?: string): Promise<QuotaSnapshot> {
+    if (expectedAccountID !== undefined && !validOpaqueValue(expectedAccountID))
+      throw new Error('Sign in to Codex with a ChatGPT account.');
+    let result: Record<string, unknown>;
+    try {
+      result = await this.request('account/rateLimits/read', { excludeResetCreditDetails: false });
+    } catch (error) {
+      // Older Windows desktop CLIs accept only null. Fall back once only when
+      // that read was rejected by the protocol, never after a transport error
+      // or initialization failure and never for a reset request.
+      if (
+        this.platform !== 'win32' ||
+        !(error instanceof ServiceRequestError) ||
+        error.method !== 'account/rateLimits/read' ||
+        (error.code !== -32600 && error.code !== -32602)
+      )
+        throw error;
+      result = await this.request('account/rateLimits/read', null);
+    }
+    if (expectedAccountID !== undefined) {
+      if (!validOpaqueValue(result.accountId))
+        throw new Error(
+          'The quota service did not confirm the current account. Update Codex and refresh.',
+        );
+      if (result.accountId !== expectedAccountID)
+        throw new Error(
+          'The quota response belongs to a different account. Refresh the current account.',
+        );
+    }
+    return parseQuota(result);
   }
 
   async consumeReset(request: ConsumeResetRequest): Promise<ResetOutcome> {
@@ -194,10 +225,12 @@ export class CodexClient {
           const authentication = /not logged|unauthorized|authentication|requires chatgpt/iu.test(
             raw,
           );
-          throw new Error(
+          throw new ServiceRequestError(
             authentication
               ? 'Sign in to Codex with a ChatGPT account.'
               : 'The quota service rejected the request. Refresh to check its status.',
+            message.id === 1 ? 'initialize' : method,
+            message.error.code,
           );
         }
         if (!isRecord(message.result))

@@ -15,10 +15,10 @@ flowchart LR
 
 - `shared/contracts.ts` specifies serializable UI state and the only exposed bridge methods. All timestamps are milliseconds since epoch; protocol seconds are converted in the parser.
 - `core/auth.ts` reads supported ChatGPT credentials and checks account-claim consistency. Signature validation remains the official server's responsibility. Tokens are never exposed to the renderer or persisted by this project.
-- `core/rpc.ts` starts the selected native Codex executable with argument arrays and `shell: false`. It initializes the experimental protocol, makes one request, enforces a timeout, and terminates the child. Read and reset requests cannot overlap.
+- `core/rpc.ts` starts the selected native Codex executable with argument arrays and `shell: false`. It initializes the experimental protocol, enforces a timeout, and terminates the child. Full-detail quota reads may fall back once to the legacy parameter format only after an explicit parameter rejection. Response account identity is checked before publishing. Reset requests never automatically retry.
 - `core/reset.ts` selects a specific credit, checks account/expiry, persists a UUID before a confirmed request, and preserves it after uncertainty. It does not select a fallback credit. Partial lists or a `redeeming` status cannot clear an unresolved receipt.
 - `core/storage.ts` atomically stores settings and account-scoped operation receipts. A corrupt store stops startup rather than discarding duplicate-prevention records.
-- `core/subscription.ts` uses a fixed official HTTPS endpoint with redirects disabled. Main rechecks account identity after the request. Cached and manual dates are labelled.
+- `core/subscription.ts` uses a fixed official HTTPS endpoint with redirects disabled. Main rechecks account identity after the request. Official dates take precedence; cached and manual reference dates are labelled. Subscription requests cannot block quota refresh and late account responses are discarded.
 - `main/application.ts` coordinates refresh, confirmation, subscription cache, and UI state. `main/index.ts` owns windows, tray, bounded IPC, startup, positioning, and lifecycle cleanup.
 - `renderer/` has no Node integration and no filesystem or network access. A sandboxed preload exposes explicit actions. Backend strings use text nodes; CSP disallows inline script and remote resources.
 - `native/` reads foreground application metadata and window bounds only. Windows physical pixels are converted to DIP in the Electron bridge; macOS emits Quartz top-left coordinates.

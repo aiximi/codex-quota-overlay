@@ -9,6 +9,7 @@ import {
   windowLabel,
 } from './format';
 import { translator } from './i18n';
+import { isQuotaCurrent, SUBSCRIPTION_REFRESH_MS } from '../shared/freshness';
 
 const root = document.getElementById('overlay')!;
 let current: OverlayState | null = null;
@@ -58,7 +59,7 @@ function heading(title: string, note?: string): HTMLElement {
 
 function countdown(
   timestamp: number,
-  kind: 'reset' | 'expiry' | 'renewal',
+  kind: 'reset' | 'expiry' | 'renewal' | 'date',
   language: Language,
 ): HTMLElement {
   const node = element('span', 'countdown');
@@ -74,18 +75,25 @@ function updateCountdown(node: HTMLElement, now: number, language: Language): vo
   const difference = timestamp - now;
   const isReset = node.dataset.countdown === 'reset';
   const isRenewal = node.dataset.countdown === 'renewal';
+  const isDate = node.dataset.countdown === 'date';
   if (!validTimestamp(timestamp)) {
     node.textContent = t('unknown');
     return;
   }
   node.classList.toggle('is-warning', difference < 86400000 && !isReset);
   if (difference <= 0) {
-    node.textContent = t(isReset ? 'now' : isRenewal ? 'renewalDue' : 'expired');
+    node.textContent = t(
+      isReset ? 'now' : isRenewal ? 'renewalDue' : isDate ? 'dateDue' : 'expired',
+    );
   } else if (isReset) {
     node.textContent = `${t('inTime')} ${duration(difference, language)}`;
   } else {
-    node.textContent = `${duration(difference, language)} ${t(isRenewal ? 'untilRenewal' : 'left')}`;
+    node.textContent = `${duration(difference, language)} ${t(isRenewal ? 'untilRenewal' : isDate ? 'untilDate' : 'left')}`;
   }
+}
+
+function currentQuota(state: OverlayState): boolean {
+  return state.preview || (!state.error && isQuotaCurrent(state.snapshot));
 }
 
 function header(state: OverlayState): HTMLElement {
@@ -104,25 +112,32 @@ function header(state: OverlayState): HTMLElement {
   toggle.setAttribute('aria-controls', 'quota-details');
   const windows = state.snapshot?.windows ?? [];
   const principal = windows.find((window) => window.windowDurationMins === 10080) ?? windows[0];
-  const remaining = principal ? remainingPercent(principal.usedPercent) : null;
+  const trusted = currentQuota(state);
+  const remaining = trusted && principal ? remainingPercent(principal.usedPercent) : null;
   toggle.append(ring(remaining));
   const summary = element('span', 'header-summary');
   summary.append(
     element(
       'span',
-      `header-window ${state.preview ? 'is-warning' : ''}`,
-      state.preview ? t('preview') : principal ? windowLabel(principal, language) : t('appName'),
+      `header-window ${state.preview || !trusted ? 'is-warning' : ''}`,
+      state.preview
+        ? t('preview')
+        : !trusted
+          ? t(state.error ? 'syncFailed' : 'awaitingOfficial')
+          : principal
+            ? windowLabel(principal, language)
+            : t('appName'),
     ),
     element('strong', 'header-percent', percent(remaining)),
   );
   toggle.append(summary, element('span', 'header-divider'));
-  const count = state.snapshot?.resetCredits?.availableCount;
+  const count = trusted ? state.snapshot?.resetCredits?.availableCount : null;
   toggle.append(element('span', 'header-resets', `${count ?? '—'} ${t('resets')}`));
   const status = element(
     'span',
-    `connection-dot ${state.loading ? 'is-loading' : ''} ${state.error ? 'is-error' : ''}`,
+    `connection-dot ${state.loading ? 'is-loading' : ''} ${!trusted ? 'is-error' : ''}`,
   );
-  status.title = state.loading ? t('refreshing') : state.error ? t('stale') : t('justNow');
+  status.title = `${t(state.loading ? 'refreshing' : trusted ? 'officialUpdated' : 'stale')} · ${dateTime(state.snapshot?.capturedAt ?? null, language)}`;
   toggle.append(status, icon('chevron', state.expanded ? 'is-expanded' : ''));
   node.append(grip, toggle);
   return node;
@@ -239,7 +254,6 @@ function subscriptionSection(state: OverlayState): HTMLElement {
   const language = state.settings.language;
   const t = translator(language);
   const section = element('section', 'subscription-section');
-  const subscription = state.subscription;
   const title = heading(t('subscription'));
   const edit = button(
     t('subscriptionHelp'),
@@ -249,22 +263,76 @@ function subscriptionSection(state: OverlayState): HTMLElement {
   edit.append(element('span', '', t('settings')), icon('arrow'));
   title.append(edit);
   section.append(title);
+  const subscription = state.subscription;
+  const manual = state.manualSubscription;
   if (!subscription || !validTimestamp(subscription.activeUntil)) {
-    section.append(element('p', 'empty-note', t('dateUnknown')));
-    return section;
-  }
-  const row = element('div', 'subscription-date-row');
-  row.append(element('span', 'caption', t(subscription.willRenew ? 'renews' : 'expires')));
-  row.append(element('strong', 'subscription-date', dateTime(subscription.activeUntil, language)));
-  const source = element('div', 'subscription-meta');
-  source.append(element('span', 'source-pill', t(subscription.source)));
-  if (subscription.activeUntil <= Date.now())
-    source.append(element('span', 'caption is-warning', t('subscriptionExpired')));
-  else
-    source.append(
-      countdown(subscription.activeUntil, subscription.willRenew ? 'renewal' : 'expiry', language),
+    section.append(
+      element(
+        'p',
+        'empty-note',
+        t(state.subscriptionLoading ? 'checkingSubscription' : 'dateUnknown'),
+      ),
     );
-  section.append(row, source);
+  } else {
+    const row = element('div', 'subscription-date-row');
+    row.append(
+      element(
+        'span',
+        'caption',
+        t(
+          subscription.willRenew === null
+            ? 'periodEnd'
+            : subscription.willRenew
+              ? 'renews'
+              : 'expires',
+        ),
+      ),
+    );
+    row.append(
+      element('strong', 'subscription-date', dateTime(subscription.activeUntil, language)),
+    );
+    const source = element('div', 'subscription-meta');
+    const outdated =
+      subscription.source === 'official' &&
+      Date.now() - subscription.checkedAt > SUBSCRIPTION_REFRESH_MS + 30_000;
+    const sourceLabel = element(
+      'span',
+      'source-pill',
+      t(outdated ? 'cached' : subscription.source),
+    );
+    sourceLabel.dataset.subscriptionSource = subscription.source;
+    sourceLabel.dataset.checkedAt = String(subscription.checkedAt);
+    source.append(sourceLabel);
+    if (subscription.activeUntil <= Date.now())
+      source.append(element('span', 'caption is-warning', t('subscriptionExpired')));
+    else
+      source.append(
+        countdown(
+          subscription.activeUntil,
+          subscription.willRenew === null ? 'date' : subscription.willRenew ? 'renewal' : 'expiry',
+          language,
+        ),
+      );
+    section.append(row, source);
+    if (subscription.source !== 'manual')
+      section.append(
+        element(
+          'p',
+          'section-note',
+          `${t('checkedAt')} ${dateTime(subscription.checkedAt, language)}`,
+        ),
+      );
+  }
+  if (state.subscriptionError)
+    section.append(element('p', 'section-note is-warning', state.subscriptionError));
+  if (manual && validTimestamp(manual.activeUntil)) {
+    const reference = element('p', 'manual-reference');
+    reference.append(
+      element('span', 'source-pill', t('manual')),
+      element('span', '', dateTime(manual.activeUntil, language)),
+    );
+    section.append(reference);
+  }
   return section;
 }
 
@@ -276,6 +344,7 @@ function render(state: OverlayState): void {
   document.documentElement.lang = state.settings.language;
   document.title = t('appName');
   root.classList.toggle('is-expanded', state.expanded);
+  root.classList.toggle('quota-not-current', !currentQuota(state));
   root.setAttribute('aria-label', t('appName'));
   root.replaceChildren(header(state));
   if (!state.expanded) return;
@@ -292,6 +361,12 @@ function render(state: OverlayState): void {
   } else if (state.snapshot?.planType)
     top.append(element('span', 'plan-badge', state.snapshot.planType));
   scroll.append(top);
+  if (!state.preview && state.snapshot && !currentQuota(state))
+    scroll.append(element('p', 'freshness-note', t('notCurrent')));
+  if (currentQuota(state) && state.snapshot?.ordinaryUsageAllowed === false)
+    scroll.append(element('p', 'freshness-note', t('ordinaryUnavailable')));
+  else if (currentQuota(state) && state.snapshot?.spendControlReached === true)
+    scroll.append(element('p', 'freshness-note', t('spendControlReached')));
   const windows = state.snapshot?.windows ?? [];
   if (windows.length)
     windows.forEach((window) => scroll.append(usageCard(window, state.settings.language)));
@@ -330,7 +405,7 @@ function render(state: OverlayState): void {
   updated.textContent = state.loading
     ? t('refreshing')
     : validTimestamp(capturedAt)
-      ? `${t('updated')} ${new Intl.DateTimeFormat(state.settings.language, { hour: '2-digit', minute: '2-digit', hour12: false }).format(capturedAt)}`
+      ? `${t('officialUpdated')} ${new Intl.DateTimeFormat(state.settings.language, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(capturedAt)}`
       : t('syncing');
   updated.title = validTimestamp(capturedAt)
     ? dateTime(capturedAt, state.settings.language)
@@ -375,6 +450,15 @@ async function start(): Promise<void> {
   if (!receivedState) applyState(initial);
   const ticker = window.setInterval(() => {
     if (!current) return;
+    const stale = !currentQuota(current);
+    if (root.classList.contains('quota-not-current') !== stale) render(current);
+    root.querySelectorAll<HTMLElement>('[data-subscription-source]').forEach((node) => {
+      const source = node.dataset.subscriptionSource as 'official' | 'cached' | 'manual';
+      const old =
+        source === 'official' &&
+        Date.now() - Number(node.dataset.checkedAt) > SUBSCRIPTION_REFRESH_MS + 30_000;
+      node.textContent = translator(current!.settings.language)(old ? 'cached' : source);
+    });
     root
       .querySelectorAll<HTMLElement>('[data-countdown]')
       .forEach((node) => updateCountdown(node, Date.now(), current!.settings.language));

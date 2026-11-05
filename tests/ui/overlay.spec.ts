@@ -119,3 +119,59 @@ test('offline preview is clickable, resets stay disabled, and settings change la
     await rm(profile, { recursive: true, force: true });
   }
 });
+
+test('old quota is visibly unverified and subscription sources age independently', async () => {
+  const profile = await mkdtemp(resolve(tmpdir(), 'codex-quota-freshness-ui-'));
+  const environment = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key, value]) => key !== 'ELECTRON_RUN_AS_NODE' && value !== undefined,
+    ),
+  ) as Record<string, string>;
+  environment.QUOTA_USER_DATA_DIR = profile;
+  const app = await electron.launch({ args: ['.', '--preview'], env: environment });
+  try {
+    const overlay = await app.firstWindow();
+    await expect(overlay.locator('#toggle-expanded')).toBeVisible();
+    await overlay.locator('#toggle-expanded').click();
+    const now = Date.now();
+    await overlay.clock.install({ time: now });
+    const state = await overlay.evaluate(() => window.quota.getState());
+    state.preview = false;
+    state.settings.refreshSeconds = 900;
+    state.snapshot!.capturedAt = now;
+    state.snapshot!.ordinaryUsageAllowed = false;
+    state.subscription = {
+      activeUntil: now + 86_400_000,
+      checkedAt: now,
+      willRenew: null,
+      source: 'official',
+    };
+    state.manualSubscription = {
+      activeUntil: now + 172_800_000,
+      checkedAt: now,
+      willRenew: true,
+      source: 'manual',
+    };
+    await app.evaluate(({ BrowserWindow }, value) => {
+      BrowserWindow.getAllWindows()
+        .find((window) => window.webContents.getURL().endsWith('/index.html'))!
+        .webContents.send('quota:updated', value);
+    }, state);
+    await expect(overlay.locator('[data-subscription-source]')).toHaveText('账号提供');
+    await expect(overlay.locator('.manual-reference')).toContainText('手动参考');
+    await expect(overlay.locator('.subscription-date-row')).toContainText('当前周期截至');
+    await expect(overlay.locator('.header-percent')).toHaveText('72%');
+    await overlay.clock.fastForward(46_000);
+    await expect(overlay.locator('.header-percent')).toHaveText('—');
+    await expect(overlay.locator('.header-window')).toHaveText('等待同步');
+    await expect(overlay.locator('.freshness-note')).toHaveText(
+      '以下为上次记录，请同步后再以这些数值为准。',
+    );
+    await expect(overlay.locator('[data-subscription-source]')).toHaveText('账号提供');
+    await overlay.clock.fastForward(46_000);
+    await expect(overlay.locator('[data-subscription-source]')).toHaveText('上次记录');
+  } finally {
+    await app.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+});

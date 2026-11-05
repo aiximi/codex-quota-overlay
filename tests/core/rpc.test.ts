@@ -71,7 +71,7 @@ test('macOS read handshake preserves protocol capabilities and never sends a mut
   client.close();
 });
 
-test('Windows reads the desktop CLI parameterless quota endpoint without a mutation', async () => {
+test('Windows requests reset details before falling back to a legacy parameterless read', async () => {
   const server = fakeServer((message, respond) => {
     if (message.id === 1) respond({ id: 1, result: {} });
     if (message.id === 2) {
@@ -88,10 +88,83 @@ test('Windows reads the desktop CLI parameterless quota endpoint without a mutat
   assert.equal((await client.readLimits()).windows[0].usedPercent, 12);
   assert.deepEqual(
     server.messages.map((message) => message.method),
-    ['initialize', 'initialized', 'account/rateLimits/read'],
+    [
+      'initialize',
+      'initialized',
+      'account/rateLimits/read',
+      'initialize',
+      'initialized',
+      'account/rateLimits/read',
+    ],
   );
-  assert.equal(server.messages[2].params, null);
+  assert.deepEqual(server.messages[2].params, { excludeResetCreditDetails: false });
+  assert.equal(server.messages[5].params, null);
   client.close();
+});
+
+test('current Windows CLI receives a single complete-details read', async () => {
+  const server = fakeServer((message, respond) => {
+    if (message.id === 1) respond({ id: 1, result: {} });
+    if (message.id === 2)
+      respond({ id: 2, result: { accountId: 'current-account', rateLimits: {} } });
+  });
+  const result = await new CodexClient('fake', {
+    spawn: server.spawn,
+    platform: 'win32',
+  }).readLimits('current-account');
+  assert.deepEqual(server.messages[2].params, { excludeResetCreditDetails: false });
+  assert.equal(server.messages.length, 3);
+  assert.equal(Object.hasOwn(result, 'accountId'), false);
+});
+
+test('quota reads reject absent and mismatched account identity without exposing IDs', async () => {
+  for (const accountId of [undefined, null, 123, '', 'different-private-account']) {
+    const server = fakeServer((message, respond) => {
+      if (message.id === 1) respond({ id: 1, result: {} });
+      if (message.id === 2) respond({ id: 2, result: { accountId, rateLimits: {} } });
+    });
+    await assert.rejects(
+      new CodexClient('fake', { spawn: server.spawn }).readLimits('expected-private-account'),
+      (error: Error) => /account/.test(error.message) && !error.message.includes('private-account'),
+    );
+  }
+});
+
+test('Windows does not retry network failures or initialization errors as legacy reads', async () => {
+  for (const rejection of [
+    { id: 2, code: -32603 },
+    { id: 1, code: -32602 },
+  ]) {
+    const server = fakeServer((message, respond) => {
+      if (message.id === rejection.id)
+        respond({ id: message.id, error: { code: rejection.code, message: 'private diagnostic' } });
+      else if (message.id === 1) respond({ id: 1, result: {} });
+    });
+    await assert.rejects(
+      new CodexClient('fake', { spawn: server.spawn, platform: 'win32' }).readLimits(),
+    );
+    assert.equal(server.messages.filter((message) => message.method === 'initialize').length, 1);
+  }
+});
+
+test('reset protocol errors never trigger the quota parameter fallback', async () => {
+  const server = fakeServer((message, respond) => {
+    if (message.id === 1) respond({ id: 1, result: {} });
+    if (message.id === 2) respond({ id: 2, error: { code: -32602, message: 'Invalid params' } });
+  });
+  await assert.rejects(
+    new CodexClient('fake', { spawn: server.spawn, platform: 'win32' }).consumeReset({
+      creditID: 'selected-credit',
+      idempotencyKey: randomUUID(),
+      expectedAccountKey: 'expected',
+      currentAccountKey: async () => 'expected',
+    }),
+  );
+  assert.equal(server.messages.filter((message) => message.id === 2).length, 1);
+  assert.equal(
+    server.messages.some((message) => message.method === 'account/rateLimits/read'),
+    false,
+  );
 });
 
 test('reset submits exactly the selected ID and UUID once after two account checks', async () => {

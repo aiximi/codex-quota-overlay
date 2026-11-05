@@ -46,7 +46,8 @@ The current authentication adapter supports ChatGPT credentials in `CODEX_HOME/a
 - Only public foreground-window geometry is read. No screenshots, chat inspection or accessibility permission is required by the window helper.
 - Actual quota windows are displayed, including accounts that only have a weekly window.
 - Reset credits are selected individually. Cancel is the confirmation default. Requests are serialized, never automatically retried, and ambiguous retries retain the same operation ID.
-- Subscription dates can come from the official account endpoint, a labelled local cache, or a manual account-scoped entry. The endpoint is not a stable public API and may be unavailable.
+- Foreground refresh defaults to 15 seconds, with a new read on return, wake and reset boundaries. Failed or stale data is labelled. Official-service polling cannot guarantee zero latency against the Codex UI.
+- Official subscription dates take precedence over labelled cached/manual references. Manual entries never replace a confirmed official date. The endpoint is not a stable public API and may be unavailable.
 - No telemetry or project-owned backend. Credentials remain in the main process and are never sent to the renderer or stored in application settings.
 
 ## Develop

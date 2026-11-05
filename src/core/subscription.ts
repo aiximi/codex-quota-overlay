@@ -3,23 +3,40 @@ import { type Credentials, isRecord, validateCredentials } from './auth.js';
 
 export type SubscriptionFetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
+function confirmedDate(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const parts =
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.exec(value);
+  if (!parts) return null;
+  const [, year, month, day, hour, minute, second] = parts.map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  // Date.parse normalizes some invalid calendar dates (for example Feb 31).
+  // A guessed rollover must never be presented as an official billing date.
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  )
+    return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
 export function parseSubscription(
   value: unknown,
   expectedAccountID: string,
   now = Date.now(),
 ): SubscriptionInfo {
+  const activeUntil = isRecord(value) ? confirmedDate(value.active_until) : null;
   if (
     !isRecord(value) ||
     (value.account_id !== undefined && value.account_id !== expectedAccountID) ||
-    typeof value.active_until !== 'string' ||
-    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/u.test(
-      value.active_until,
-    )
+    activeUntil === null
   ) {
-    throw new Error('The subscription service did not return a confirmed expiration date.');
-  }
-  const activeUntil = Date.parse(value.active_until);
-  if (!Number.isFinite(activeUntil) || activeUntil <= 0) {
     throw new Error('The subscription service did not return a confirmed expiration date.');
   }
   return {

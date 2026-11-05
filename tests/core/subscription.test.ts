@@ -36,6 +36,27 @@ test('subscription rejects mismatched identity, nested dates, and malformed date
     parseSubscription({ accounts: [{ active_until: '2030-01-01T00:00:00Z' }] }, 'expected'),
   );
   assert.throws(() => parseSubscription({ active_until: 'tomorrow' }, 'expected'));
+  for (const active_until of [
+    '2030-02-31T00:00:00Z',
+    '2030-01-01T24:00:00Z',
+    '2030-13-01T00:00:00Z',
+  ])
+    assert.throws(() => parseSubscription({ active_until }, 'expected'));
+});
+
+test('subscription preserves an explicit renewal date and leaves unknown renewal status unknown', () => {
+  const renewal = parseSubscription(
+    { active_until: '2032-02-29T12:34:56+08:00', will_renew: true },
+    'expected',
+    123,
+  );
+  assert.equal(renewal.activeUntil, Date.parse('2032-02-29T04:34:56Z'));
+  assert.equal(renewal.willRenew, true);
+  assert.equal(renewal.checkedAt, 123);
+  assert.equal(
+    parseSubscription({ active_until: '2030-01-01T00:00:00Z' }, 'expected').willRenew,
+    null,
+  );
 });
 
 test('subscription never retries and does not expose transport errors', async () => {

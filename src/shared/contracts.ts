@@ -18,8 +18,12 @@ export interface QuotaSnapshot {
   capturedAt: number;
   windows: UsageWindow[];
   planType: string | null;
-  credits: { balance: string | null; unlimited: boolean; hasCredits: boolean } | null;
+  credits: { balance: string | null; unlimited: boolean | null; hasCredits: boolean | null } | null;
   resetCredits: { availableCount: number; credits: ResetCredit[] | null } | null;
+  /** Only the official response can confirm usage permission; percentages cannot. */
+  ordinaryUsageAllowed?: boolean | null;
+  rateLimitReachedType?: string | null;
+  spendControlReached?: boolean | null;
 }
 
 export interface SubscriptionInfo {
@@ -53,6 +57,10 @@ export interface OverlayState {
   preview: boolean;
   snapshot: QuotaSnapshot | null;
   subscription: SubscriptionInfo | null;
+  /** A personal reference, never a replacement for the official subscription record. */
+  manualSubscription?: SubscriptionInfo | null;
+  subscriptionLoading?: boolean;
+  subscriptionError?: string | null;
   loading: boolean;
   resetBusy: boolean;
   error: string | null;

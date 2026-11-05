@@ -3,7 +3,7 @@ import type { AppSettings, SettingsPatch } from '../shared/contracts';
 export const DEFAULT_SETTINGS: AppSettings = {
   language: 'zh-CN',
   autoStart: false,
-  refreshSeconds: 60,
+  refreshSeconds: 15,
   offset: { x: 16, y: 64 },
   cliPath: '',
 };
@@ -22,10 +22,10 @@ export function validateSettings(value: unknown): SettingsPatch {
     'refreshSeconds' in patch &&
     (typeof patch.refreshSeconds !== 'number' ||
       !Number.isInteger(patch.refreshSeconds) ||
-      patch.refreshSeconds < 30 ||
+      patch.refreshSeconds < 5 ||
       patch.refreshSeconds > 900)
   )
-    throw new Error('Refresh interval must be 30–900 seconds');
+    throw new Error('Refresh interval must be 5–900 seconds');
   if (
     'cliPath' in patch &&
     (typeof patch.cliPath !== 'string' ||

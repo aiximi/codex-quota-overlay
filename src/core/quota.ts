@@ -10,6 +10,10 @@ function timestamp(value: unknown): number | null {
     : null;
 }
 
+function optionalBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
 function usageWindow(value: unknown): UsageWindow | null {
   if (
     !isRecord(value) ||
@@ -45,8 +49,19 @@ function resetCredit(value: unknown): ResetCredit {
 export function parseQuota(result: unknown, now = Date.now()): QuotaSnapshot {
   if (!isRecord(result)) throw new Error('The quota service returned unrecognized data.');
   const buckets = isRecord(result.rateLimitsByLimitId) ? result.rateLimitsByLimitId : null;
-  const bucket = isRecord(buckets?.codex) ? buckets.codex : result.rateLimits;
-  if (!isRecord(bucket)) throw new Error('The quota service returned unrecognized data.');
+  const hasCodexBucket = buckets !== null && Object.hasOwn(buckets, 'codex');
+  const bucket = hasCodexBucket ? buckets.codex : result.rateLimits;
+  if (
+    !isRecord(bucket) ||
+    (bucket.limitId != null && bucket.limitId !== 'codex') ||
+    // A populated map with no Codex entry makes an anonymous legacy bucket
+    // ambiguous. Never label another product's quota as Codex.
+    (!hasCodexBucket &&
+      buckets !== null &&
+      Object.keys(buckets).length > 0 &&
+      bucket.limitId !== 'codex')
+  )
+    throw new Error('The quota service returned unrecognized Codex data.');
   const credits = isRecord(bucket.credits) ? bucket.credits : null;
   const resets = isRecord(result.rateLimitResetCredits) ? result.rateLimitResetCredits : null;
   return {
@@ -55,19 +70,24 @@ export function parseQuota(result: unknown, now = Date.now()): QuotaSnapshot {
       (window): window is UsageWindow => window !== null,
     ),
     planType: typeof bucket.planType === 'string' ? bucket.planType : null,
+    ordinaryUsageAllowed: optionalBoolean(result.ordinaryUsageAllowed),
+    rateLimitReachedType:
+      typeof bucket.rateLimitReachedType === 'string' ? bucket.rateLimitReachedType : null,
+    spendControlReached: optionalBoolean(bucket.spendControlReached),
     credits: credits
       ? {
           balance: typeof credits.balance === 'string' ? credits.balance : null,
-          unlimited: credits.unlimited === true,
-          hasCredits: credits.hasCredits === true,
+          unlimited: optionalBoolean(credits.unlimited),
+          hasCredits: optionalBoolean(credits.hasCredits),
         }
       : null,
     resetCredits:
       resets &&
       typeof resets.availableCount === 'number' &&
-      Number.isSafeInteger(resets.availableCount)
+      Number.isSafeInteger(resets.availableCount) &&
+      resets.availableCount >= 0
         ? {
-            availableCount: Math.max(0, resets.availableCount),
+            availableCount: resets.availableCount,
             // Missing/null means unknown; [] means fetched and empty. Details may be capped.
             credits: Array.isArray(resets.credits) ? resets.credits.map(resetCredit) : null,
           }

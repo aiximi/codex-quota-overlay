@@ -5,6 +5,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  powerMonitor,
   screen,
   session,
   shell,
@@ -341,6 +342,12 @@ async function start(): Promise<void> {
     );
     tracker.start();
   }
+  const resume = () => {
+    quota.resume();
+    void quota.tick(!!host);
+  };
+  powerMonitor.on('resume', resume);
+  powerMonitor.on('unlock-screen', resume);
   interval = setInterval(() => void quota.tick(!!host), 1_000);
   void quota.refresh();
   if (process.argv.includes('--smoke-test')) {

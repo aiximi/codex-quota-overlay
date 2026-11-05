@@ -102,7 +102,7 @@ function preferencesSection(state: OverlayState, draft: Draft | null): HTMLEleme
   language.value = draft?.language ?? state.settings.language;
   const refresh = element('input');
   refresh.type = 'number';
-  refresh.min = '30';
+  refresh.min = '5';
   refresh.max = '900';
   refresh.step = '1';
   refresh.required = true;
@@ -138,7 +138,7 @@ function preferencesSection(state: OverlayState, draft: Draft | null): HTMLEleme
     if (preferencesBusy) return;
     const values = readDraft()!;
     const interval = Number(values.refreshSeconds);
-    if (!Number.isInteger(interval) || interval < 30 || interval > 900) {
+    if (!Number.isInteger(interval) || interval < 5 || interval > 900) {
       notify(t('invalidInterval'), true);
       refresh.focus();
       return;
@@ -179,6 +179,8 @@ function updateSubscriptionStatus(state: OverlayState): void {
   currentSubscription.textContent = subscription
     ? `${t('currentDate')}: ${dateTime(subscription.activeUntil, state.settings.language)} · ${t(subscription.source)}`
     : t('dateUnknown');
+  if (state.manualSubscription)
+    currentSubscription.textContent += ` · ${t('manual')}: ${dateTime(state.manualSubscription.activeUntil, state.settings.language)}`;
 }
 
 function subscriptionSection(state: OverlayState, draft: Draft | null): HTMLElement {
@@ -190,13 +192,20 @@ function subscriptionSection(state: OverlayState, draft: Draft | null): HTMLElem
   const date = element('input');
   date.type = 'datetime-local';
   date.required = true;
-  date.value = draft?.subscriptionDate ?? localDateInput(state.subscription?.activeUntil ?? null);
+  date.value =
+    draft?.subscriptionDate ??
+    localDateInput(
+      state.manualSubscription?.activeUntil ?? state.subscription?.activeUntil ?? null,
+    );
   form.append(
     field(t('subscriptionDate'), 'subscription-date', date, t('dateHelp')),
     checkbox(
       t('willRenew'),
       'will-renew',
-      draft?.willRenew ?? state.subscription?.willRenew ?? false,
+      draft?.willRenew ??
+        state.manualSubscription?.willRenew ??
+        state.subscription?.willRenew ??
+        false,
     ),
   );
   const actions = element('div', 'button-row');

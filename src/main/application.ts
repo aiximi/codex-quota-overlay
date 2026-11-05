@@ -1,5 +1,5 @@
 import { dialog, net } from 'electron';
-import { getAccountKey, readCredentials } from '../core/auth';
+import { getAccountKey, readCredentials, type Credentials } from '../core/auth';
 import { CodexClient } from '../core/rpc';
 import { ResetManager } from '../core/reset';
 import { Store } from '../core/storage';
@@ -13,6 +13,7 @@ import type {
 import { discoverCLI } from './platform/discovery';
 import { DEFAULT_SETTINGS, validateSettings } from './settings';
 import { previewData } from './fixtures';
+import { isQuotaCurrent, shouldRefreshQuota, SUBSCRIPTION_REFRESH_MS } from '../shared/freshness';
 
 export class QuotaApplication {
   readonly state: OverlayState;
@@ -22,6 +23,10 @@ export class QuotaApplication {
   private lastRead = 0;
   private lastSubscription = 0;
   private lastIdentityCheck = 0;
+  private accountGeneration = 0;
+  private subscriptionRequest = 0;
+  private wasVisible = false;
+  private foregroundRefreshPending = false;
   private resetManager: ResetManager;
   private stopped = false;
   appPath: string | undefined;
@@ -38,6 +43,9 @@ export class QuotaApplication {
     try {
       const { offset, ...patch } = saved;
       settings = { ...settings, ...validateSettings(patch) };
+      // Migrate the old default; keep deliberately different saved intervals.
+      if (!store.get<boolean>('syncSettingsV2') && settings.refreshSeconds === 60)
+        settings.refreshSeconds = DEFAULT_SETTINGS.refreshSeconds;
       if (offset && Number.isFinite(offset.x) && Number.isFinite(offset.y))
         settings.offset = offset;
     } catch {
@@ -49,6 +57,9 @@ export class QuotaApplication {
       preview,
       snapshot: null,
       subscription: null,
+      manualSubscription: null,
+      subscriptionLoading: false,
+      subscriptionError: null,
       loading: false,
       resetBusy: false,
       error: null,
@@ -78,7 +89,7 @@ export class QuotaApplication {
     this.state.resetAvailability = credits.flatMap((credit) => {
       if (!credit.id) return [];
       const available = this.resetManager.availability(credit, this.account ?? '');
-      const stale = !this.state.snapshot || Date.now() - this.state.snapshot.capturedAt > 150_000;
+      const stale = !isQuotaCurrent(this.state.snapshot);
       const blocked =
         this.state.preview ||
         this.readOnly ||
@@ -104,29 +115,125 @@ export class QuotaApplication {
     if (!this.stopped) this.changed();
   }
 
+  private selectAccount(account: string | null): void {
+    if (account === this.account) return;
+    this.account = account;
+    this.accountGeneration += 1;
+    this.subscriptionRequest += 1;
+    this.state.snapshot = null;
+    this.state.subscription = null;
+    this.state.manualSubscription = null;
+    this.state.subscriptionLoading = false;
+    this.state.subscriptionError = null;
+    this.state.notice = null;
+    this.lastRead = 0;
+    this.lastSubscription = 0;
+    if (account) {
+      const cached = this.store.get<SubscriptionInfo>(`subscription.cached.${account}`);
+      this.state.subscription = cached ? { ...cached, source: 'cached' } : null;
+      this.state.manualSubscription =
+        this.store.get<SubscriptionInfo>(`subscription.manual.${account}`) ?? null;
+    }
+    this.publish();
+  }
+
+  resume(): void {
+    this.foregroundRefreshPending = true;
+    this.lastIdentityCheck = 0;
+  }
+
   async tick(visible: boolean): Promise<void> {
-    if (this.stopped || this.state.preview || this.state.loading || this.state.resetBusy) return;
+    if (this.stopped || this.state.preview) return;
+    if (visible && !this.wasVisible) this.foregroundRefreshPending = true;
+    this.wasVisible = visible;
+    // Keep checking identity even while a slow request is in flight.
     if (visible && Date.now() - this.lastIdentityCheck > 2_000) {
       this.lastIdentityCheck = Date.now();
       const account = await getAccountKey();
       if (this.stopped) return;
-      if (account !== this.account && !this.state.loading && !this.state.resetBusy) {
-        this.account = account;
-        this.state.snapshot = null;
-        this.state.subscription = null;
-        this.lastRead = 0;
-        this.lastSubscription = 0;
-        this.publish();
-      }
+      this.selectAccount(account);
     }
     if (
-      this.state.snapshot &&
-      Date.now() - this.state.snapshot.capturedAt > 150_000 &&
+      !isQuotaCurrent(this.state.snapshot) &&
       this.state.resetAvailability.some((credit) => credit.enabled)
     )
       this.publish();
-    if (visible && Date.now() - this.lastRead >= this.state.settings.refreshSeconds * 1_000)
+    if (this.state.loading || this.state.resetBusy) return;
+    if (
+      visible &&
+      shouldRefreshQuota(
+        this.state.snapshot,
+        this.lastRead,
+        this.state.settings.refreshSeconds,
+        this.foregroundRefreshPending,
+        Date.now(),
+      )
+    ) {
+      this.foregroundRefreshPending = false;
       await this.refresh();
+    }
+  }
+
+  private async refreshSubscription(credentials: Credentials, force: boolean): Promise<void> {
+    if (
+      this.stopped ||
+      credentials.accountKey !== this.account ||
+      this.state.subscriptionLoading ||
+      (!force && Date.now() - this.lastSubscription < SUBSCRIPTION_REFRESH_MS)
+    )
+      return;
+    const generation = this.accountGeneration;
+    const request = ++this.subscriptionRequest;
+    this.lastSubscription = Date.now();
+    this.state.subscriptionLoading = true;
+    this.publish();
+    try {
+      const result = await readSubscription(credentials, (input, init) =>
+        net.fetch(input instanceof URL ? input.toString() : input, init),
+      );
+      if (
+        this.stopped ||
+        request !== this.subscriptionRequest ||
+        generation !== this.accountGeneration
+      )
+        return;
+      const current = await getAccountKey();
+      if (
+        this.stopped ||
+        request !== this.subscriptionRequest ||
+        generation !== this.accountGeneration
+      )
+        return;
+      if (current !== credentials.accountKey) {
+        this.selectAccount(current);
+        return;
+      }
+      this.store.set(`subscription.cached.${credentials.accountKey}`, result);
+      this.state.subscription = result;
+      this.state.subscriptionError = null;
+    } catch {
+      if (
+        this.stopped ||
+        request !== this.subscriptionRequest ||
+        generation !== this.accountGeneration
+      )
+        return;
+      if (this.state.subscription?.source === 'official')
+        this.state.subscription = { ...this.state.subscription, source: 'cached' };
+      this.state.subscriptionError = this.text(
+        '官方订阅日期暂未核实。',
+        'The official subscription date could not be verified.',
+      );
+    } finally {
+      if (
+        !this.stopped &&
+        request === this.subscriptionRequest &&
+        generation === this.accountGeneration
+      ) {
+        this.state.subscriptionLoading = false;
+        this.publish();
+      }
+    }
   }
 
   async refresh(forceSubscription = false): Promise<void> {
@@ -142,13 +249,10 @@ export class QuotaApplication {
     try {
       const credentials = await readCredentials();
       if (this.stopped) return;
-      if (credentials.accountKey !== this.account) {
-        this.account = credentials.accountKey;
-        this.state.snapshot = null;
-        this.state.subscription = null;
-        this.state.notice = null;
-        this.lastSubscription = 0;
-      }
+      this.selectAccount(credentials.accountKey);
+      const generation = this.accountGeneration;
+      this.lastRead = Date.now();
+      void this.refreshSubscription(credentials, forceSubscription);
       const executable = await discoverCLI(this.state.settings.cliPath || undefined, this.appPath);
       if (this.stopped) return;
       if (!executable)
@@ -163,11 +267,11 @@ export class QuotaApplication {
         this.client = new CodexClient(executable);
         this.executable = executable;
       }
-      const snapshot = await this.client!.readLimits();
+      const snapshot = await this.client!.readLimits(credentials.accountID);
       if (this.stopped) return;
       const currentAccount = await getAccountKey();
       if (this.stopped) return;
-      if (currentAccount !== credentials.accountKey)
+      if (currentAccount !== credentials.accountKey || generation !== this.accountGeneration)
         throw new Error(
           this.text('账户已切换，请重新同步。', 'The account changed. Refresh again.'),
         );
@@ -175,48 +279,13 @@ export class QuotaApplication {
       this.state.error = null;
       await this.resetManager.reconcile(snapshot, credentials.accountKey);
       if (this.stopped) return;
-      const manual = this.store.get<SubscriptionInfo>(`subscription.manual.${this.account}`);
-      const cached = this.store.get<SubscriptionInfo>(`subscription.cached.${this.account}`);
-      this.state.subscription = manual ?? (cached ? { ...cached, source: 'cached' } : null);
-      // Windows should display the quota as soon as the CLI replies. The
-      // optional subscription endpoint may take much longer to respond.
-      if (process.platform === 'win32') this.publish();
-      if (forceSubscription || Date.now() - this.lastSubscription >= 900_000) {
-        this.lastSubscription = Date.now();
-        try {
-          const result = await readSubscription(credentials, (input, init) =>
-            net.fetch(input instanceof URL ? input.toString() : input, init),
-          );
-          if (this.stopped) return;
-          const subscriptionAccount = await getAccountKey();
-          if (this.stopped) return;
-          if (subscriptionAccount === credentials.accountKey) {
-            this.store.set(`subscription.cached.${credentials.accountKey}`, result);
-            this.state.subscription =
-              this.store.get<SubscriptionInfo>(`subscription.manual.${credentials.accountKey}`) ??
-              result;
-          } else {
-            this.account = null;
-            this.state.snapshot = null;
-            this.state.subscription = null;
-            this.state.error = this.text(
-              '账户已切换，请重新同步。',
-              'The account changed. Refresh again.',
-            );
-          }
-        } catch {
-          /* Subscription is optional; preserve a clearly labelled cached value. */
-        }
-      }
+      // Quota is independent of optional subscription billing information.
+      this.publish();
     } catch (error) {
       if (this.stopped) return;
       const current = await getAccountKey();
       if (this.stopped) return;
-      if (current !== this.account) {
-        this.account = current;
-        this.state.snapshot = null;
-        this.state.subscription = null;
-      }
+      this.selectAccount(current);
       this.state.error =
         error instanceof Error
           ? error.message
@@ -256,7 +325,7 @@ export class QuotaApplication {
       this.state.resetBusy ||
       this.state.loading ||
       !this.state.snapshot ||
-      Date.now() - this.state.snapshot.capturedAt > 150_000
+      !isQuotaCurrent(this.state.snapshot)
     )
       return;
     this.state.resetBusy = true;
@@ -286,7 +355,7 @@ export class QuotaApplication {
         noLink: true,
       });
       if (answer.response !== 1 || this.stopped) return;
-      if (!this.state.snapshot || Date.now() - this.state.snapshot.capturedAt > 150_000) {
+      if (!this.state.snapshot || !isQuotaCurrent(this.state.snapshot)) {
         this.state.notice = this.text(
           '额度数据已过期，请刷新后重新确认。',
           'Quota data has expired. Refresh and confirm again.',
@@ -330,6 +399,7 @@ export class QuotaApplication {
     const patch = validateSettings(input);
     this.state.settings = { ...this.state.settings, ...patch };
     this.store.set('settings', this.state.settings);
+    this.store.set('syncSettingsV2', true);
     this.publish();
     return patch;
   }
@@ -361,8 +431,7 @@ export class QuotaApplication {
     if (value === null) {
       this.store.delete(key);
       this.lastSubscription = 0;
-      const cached = this.store.get<SubscriptionInfo>(`subscription.cached.${account}`);
-      this.state.subscription = cached ? { ...cached, source: 'cached' } : null;
+      this.state.manualSubscription = null;
     } else {
       const candidate = value as Record<string, unknown>;
       if (
@@ -381,13 +450,14 @@ export class QuotaApplication {
         source: 'manual',
       };
       this.store.set(key, entry);
-      this.state.subscription = entry;
+      this.state.manualSubscription = entry;
     }
     this.publish();
   }
 
   close(): void {
     this.stopped = true;
+    this.subscriptionRequest += 1;
     this.client?.close();
   }
 }

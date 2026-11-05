@@ -53,7 +53,7 @@ Get-FileHash .\Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe -Algorithm SHA256
 
 1. 切换到 Codex 后显示浮层。点击标题栏展开或收起，拖动最左侧的小点调整位置。
 2. 展开可查看官方额度周期、自然重置时间、重置机会到期时间、额外额度和订阅日期。
-3. 点击刷新立即查询；默认每 60 秒同步，前台使用时按设置更新。倒计时在本机每秒计算。
+3. 点击刷新立即查询；默认每 15 秒同步，前台使用时按设置更新；返回 Codex 或系统唤醒时重新核对。倒计时在本机每秒计算，到期后等待官方确认，不自行宣布额度恢复。
 4. 点击齿轮，或系统托盘/菜单栏图标，打开设置。浮层出现时不会抢占 Codex 的键盘焦点；Windows 点击浮层后可正常使用鼠标与键盘，点击回 Codex 可继续输入。
 5. 可选登录时自动启动。退出应用用托盘菜单的“退出”。
 
@@ -67,7 +67,7 @@ Get-FileHash .\Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe -Algorithm SHA256
 
 ### 订阅日期
 
-自动续费时显示续费日期，其余情况显示到期日期。接口不可用时显示未获取或上次确认记录。设置中可填写日期、选择是否自动续费；手动记录会标注来源且按账号隔离。“恢复自动”删除当前账号的手动日期。
+官方明确自动续费时显示续费日期；续费状态未知时显示订阅日期。官方日期优先显示，手动填写不会覆盖官方结果。接口不可用时显示未获取或标明时间的上次确认记录；手动值仅作“手动参考”，按账号隔离。“恢复自动”删除当前账号的手动日期。
 
 自然周额度重置日、重置机会到期日、订阅续费日彼此独立。时间以本机时区显示。额外额度直接显示官方余额，不能当作美元、人民币或剩余消息数。
 
@@ -88,13 +88,19 @@ Get-FileHash .\Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe -Algorithm SHA256
 
 ## 更新与卸载
 
+### 2.1.0：统一官方数据同步
+
+macOS 和 Windows 共用本次更新。默认 15 秒前台刷新，回到 Codex、系统唤醒及周期到期时重新核对。额度先显示，订阅独立查询；账号响应不匹配时停止显示错误账号的数据。同步失败、未知值、上次确认时间和手动参考明确区分。详见 [2.1.0 更新说明](releases/v2.1.0.md)。
+
+这是对官方服务的周期性查询，网络和官方缓存可能造成短暂时差；浮窗并非官方窗口的实时镜像。额度记录超过 45 秒或跨过待确认的重置时间后标为待核实；即使手动设置了更长刷新间隔，也不会把旧记录标作当前状态。官方订阅记录超过 90 秒后改标上次记录。
+
 ### Windows 2.0.1：修复点击、跟随与额度显示
 
 旧版 Windows 窗口使用不可获得焦点的原生窗口，可能显示面板却无法正常点击。修复版允许点击时获得焦点，同时保留与 Codex 的窗口关联；切换其他应用或最小化 Codex 后仍会隐藏。拖动完成后才保存位置，避免每次移动同步写盘。
 
-如果同时一直显示 `—`，修复版会自动寻找 `%LOCALAPPDATA%\OpenAI\Codex\bin\<版本>\codex.exe`，并使用当前 Windows CLI 要求的无参数额度查询。更新后无需手动填写带版本号的路径；此前手动指定过旧路径的用户可在设置中清空 CLI 路径，恢复自动查找。额度读取成功后会先显示，订阅日期可能稍后返回。
+如果同时一直显示 `—`，修复版会自动寻找 `%LOCALAPPDATA%\OpenAI\Codex\bin\<版本>\codex.exe`，2.0.1 使用当时 Windows CLI 要求的无参数额度查询；2.1.0 会先请求完整明细，仅在旧 CLI 明确拒绝参数时兼容回退。更新后无需手动填写带版本号的路径；此前手动指定过旧路径的用户可在设置中清空 CLI 路径，恢复自动查找。额度读取成功后会先显示，订阅日期可能稍后返回。
 
-这些修复已发布为 **Windows 2.0.1**，详情见 [本次版本说明](releases/windows-v2.0.1.md)。这是仅 Windows 的更新，macOS 继续使用原 2.0.0 安装包，窗口和额度请求方式保持原样。
+这些修复已发布为 **Windows 2.0.1**，详情见 [本次版本说明](releases/windows-v2.0.1.md)。这是历史上的 Windows 专用更新；2.1.0 已将这些修复与新的官方同步逻辑合并到共同版本。
 
 1. 在 [下载中心](../DOWNLOADS.md) 下载对应系统的版本，并核对该发布页的校验值。
 2. 通过系统托盘/菜单栏的“退出”结束旧浮层。关闭 Codex 窗口不等于退出浮层，不要同时运行旧版和新版。
@@ -113,9 +119,9 @@ Install official Codex and sign in with a supported ChatGPT file-based login. Se
 
 Each Reset button selects one credit and opens a confirmation whose default is Cancel. The app never automatically redeems credits. Network uncertainty retains the operation ID; retry the same item after reviewing refreshed data. Preview is fully offline and cannot redeem a real credit.
 
-Subscription dates are best-effort official lookups or explicitly labelled cached/manual entries. Set a date manually if the account endpoint is unavailable.
+Foreground quota refresh defaults to 15 seconds. Returning to Codex or waking the system triggers another read; failed or stale data is labelled. The app polls official services and cannot guarantee zero latency. Official subscription dates take precedence over labelled cached/manual references; a manual entry never replaces a confirmed official date.
 
-**Windows 2.0.1 is a Windows-only update; macOS remains on 2.0.0.** It fixes native mouse/keyboard input, Codex window tracking during overlay interaction, managed CLI discovery, and the Windows quota request. Usage can now appear before the optional subscription lookup completes. See the [release details](releases/windows-v2.0.1.md).
+**Windows 2.0.1 was a Windows-only patch; 2.1.0 resumes a shared macOS and Windows release.** It fixes native mouse/keyboard input, Codex window tracking during overlay interaction, managed CLI discovery, and the Windows quota request. Usage can now appear before the optional subscription lookup completes. See the [release details](releases/windows-v2.0.1.md).
 
 Before updating, quit the old overlay through its tray/menu-bar menu; closing Codex alone does not stop it. Run the new Windows installer or replace the portable EXE after quitting. Do not run both versions together. Clear any obsolete manual CLI path in Settings to restore automatic discovery. There is no auto-updater, and pulling source changes does not update an installed binary. These Windows builds remain unsigned; the update does not remove SmartScreen restrictions.
 
