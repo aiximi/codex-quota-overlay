@@ -5,6 +5,14 @@
 - Put downloads immediately after the project introduction, with a generated latest-per-platform block in both READMEs.
 - Add a unified download center, complete version history, and detailed notes for each published release. Keep Windows and macOS release versions explicit.
 
+## 2.1.2 · 2026-11-11
+
+[Release details / 版本详情](docs/releases/v2.1.2.md) · [Published packages](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.1.2)
+
+- Keep the exact verified Codex window associated while the macOS overlay or Settings owns foreground, fixing disappearance during interaction.
+- Clear associations on unrelated apps, unavailable hosts or changed process/window identity.
+- Test production Swift host selection directly, including repeated clicks, settings, movement and stale hosts; Windows behavior is unchanged.
+
 ## 2.1.1 · 2026-11-11
 
 [Release details / 版本详情](docs/releases/v2.1.1.md) · [Published packages](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.1.1)

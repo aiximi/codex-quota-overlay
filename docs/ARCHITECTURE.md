@@ -42,6 +42,8 @@ On macOS, the helper also checks the exact overlay CGWindowID and owner PID in t
 
 No screenshots, window-title parsing, chat text or Accessibility APIs are used. The native regression test operates on a separate offline test panel and substitutes the Electron visible flag; it does not control the user's Codex or use account credentials.
 
+On macOS, `HostSelection` remembers the verified Codex PID, launch date and exact window ID when Codex is foreground. When this overlay's own parent process takes foreground, it revalidates that host and continues following it. An unrelated application or missing/hidden host clears the association. Settings opened without a prior host cannot create one. A separate test executes this production Swift selection policy with synthetic application and window observations, covering the tracking behavior that preview mode disables.
+
 ## External dependencies
 
 - [Codex app-server protocol](https://learn.chatgpt.com/docs/app-server)

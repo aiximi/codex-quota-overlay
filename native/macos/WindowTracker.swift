@@ -27,11 +27,101 @@ func isOverlayOnScreen(_ windows: [[String: Any]], windowID: CGWindowID, ownerPI
     }
 }
 
+struct ApplicationSnapshot {
+    let pid: pid_t
+    let bundleID: String?
+    let launchDate: Date?
+    let active: Bool
+    let hidden: Bool
+    let terminated: Bool
+    let path: String?
+
+    init(pid: pid_t, bundleID: String?, launchDate: Date?, active: Bool,
+         hidden: Bool = false, terminated: Bool = false, path: String? = nil) {
+        self.pid = pid
+        self.bundleID = bundleID
+        self.launchDate = launchDate
+        self.active = active
+        self.hidden = hidden
+        self.terminated = terminated
+        self.path = path
+    }
+
+    init(_ application: NSRunningApplication) {
+        self.init(pid: application.processIdentifier, bundleID: application.bundleIdentifier,
+                  launchDate: application.launchDate, active: application.isActive,
+                  hidden: application.isHidden, terminated: application.isTerminated,
+                  path: application.bundleURL?.path)
+    }
+}
+
+// Keep a verified host while the user interacts with our own panel or Settings.
+// Only foreground Codex can establish a host; our application cannot revive one
+// after another application, a hidden/closed window, or a process restart.
+final class HostSelection {
+    private struct Host {
+        let pid: pid_t
+        let launchDate: Date?
+        let windowID: CGWindowID
+    }
+    private var host: Host?
+
+    func frame(front: ApplicationSnapshot?, parentPID: pid_t,
+               windows: [[String: Any]], application: (pid_t) -> ApplicationSnapshot?) -> Frame {
+        guard let front = front, front.active, !front.hidden, !front.terminated else {
+            return clear()
+        }
+
+        let candidate: ApplicationSnapshot
+        let requiredWindow: CGWindowID?
+        if front.bundleID == "com.openai.codex" {
+            candidate = front
+            requiredWindow = nil
+        } else if front.pid == parentPID, let host = host, let launchDate = host.launchDate,
+                  let previous = application(host.pid), previous.pid == host.pid,
+                  previous.bundleID == "com.openai.codex",
+                  previous.launchDate == launchDate,
+                  !previous.hidden, !previous.terminated {
+            candidate = previous
+            requiredWindow = host.windowID
+        } else {
+            return clear()
+        }
+
+        for window in windows {
+            guard (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == candidate.pid,
+                  let windowID = (window[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
+                  windowID != 0, requiredWindow == nil || windowID == requiredWindow,
+                  (window[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (window[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true,
+                  ((window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.01,
+                  let values = window[kCGWindowBounds as String] as? [String: Any],
+                  let rect = CGRect(dictionaryRepresentation: values as CFDictionary),
+                  rect.width >= 460, rect.height >= 300,
+                  rect.origin.x.isFinite, rect.origin.y.isFinite,
+                  rect.width.isFinite, rect.height.isFinite else { continue }
+
+            host = Host(pid: candidate.pid, launchDate: candidate.launchDate, windowID: windowID)
+            // Quartz already uses Electron's top-left coordinate system.
+            return Frame(visible: true,
+                         bounds: Bounds(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height),
+                         appPath: candidate.path)
+        }
+        return clear()
+    }
+
+    private func clear() -> Frame {
+        host = nil
+        return Frame(visible: false)
+    }
+}
+
 final class WindowObserver {
     private var lastFrame: Frame?
     private var lastEmission = Date.distantPast
     private let originalParent = getppid()
     private let overlayID = CommandLine.arguments.dropFirst().first.flatMap(UInt32.init)
+    private let selection = HostSelection()
 
     func poll() {
         // Do not leave an orphan helper running after the Electron host exits.
@@ -48,37 +138,19 @@ final class WindowObserver {
     }
 
     private func currentFrame() -> Frame {
-        guard let app = NSWorkspace.shared.frontmostApplication,
-              // com.openai.chat is the separate ChatGPT app, not Codex.
-              app.bundleIdentifier == "com.openai.codex",
-              app.isActive, !app.isHidden, !app.isTerminated,
-              let windows = CGWindowListCopyWindowInfo(
-                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
-              ) as? [[String: Any]] else { return Frame(visible: false) }
-
-        for window in windows {
-            guard (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == app.processIdentifier,
-                  (window[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
-                  (window[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true,
-                  ((window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.01,
-                  let values = window[kCGWindowBounds as String] as? [String: Any],
-                  let rect = CGRect(dictionaryRepresentation: values as CFDictionary),
-                  rect.width >= 460, rect.height >= 300,
-                  rect.origin.x.isFinite, rect.origin.y.isFinite,
-                  rect.width.isFinite, rect.height.isFinite else { continue }
-
-            // Quartz already uses the top-left coordinate system Electron
-            // expects on macOS. Do not apply AppKit's bottom-left conversion.
-            return Frame(
-                visible: true,
-                bounds: Bounds(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height),
-                appPath: app.bundleURL?.path,
-                overlayVisible: overlayID.map {
-                    isOverlayOnScreen(windows, windowID: $0, ownerPID: originalParent)
-                }
-            )
+        let front = NSWorkspace.shared.frontmostApplication.map(ApplicationSnapshot.init)
+        let windows = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        var frame = selection.frame(front: front, parentPID: originalParent, windows: windows) { pid in
+            NSRunningApplication(processIdentifier: pid).map(ApplicationSnapshot.init)
         }
-        return Frame(visible: false)
+        if frame.visible {
+            frame.overlayVisible = overlayID.map {
+                isOverlayOnScreen(windows, windowID: $0, ownerPID: originalParent)
+            }
+        }
+        return frame
     }
 }
 

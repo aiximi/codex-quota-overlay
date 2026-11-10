@@ -1,7 +1,7 @@
 {
   "name": "codex-quota-overlay",
   "productName": "Codex Quota Overlay",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "A private, compact desktop quota overlay for Codex on macOS and Windows.",
   "author": "aiximi",
   "license": "MIT",
