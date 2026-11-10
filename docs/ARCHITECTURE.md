@@ -36,7 +36,11 @@ flowchart LR
 
 ## Foreground following
 
-The helper emits a rectangle or hidden state and a periodic heartbeat. The parent hides on missing geometry, process failure or watchdog expiry. Restarts are bounded. The overlay is nonactivating, while Settings and the confirmation dialog can receive focus. No screenshots, window-title parsing, chat text or Accessibility APIs are used.
+The helper emits a rectangle or hidden state and a periodic heartbeat. The parent hides on missing geometry, process failure or watchdog expiry. Helper restarts use exponential backoff capped at 30 seconds; ten healthy seconds reset the delay. Wake/unlock and the position-restore action restart tracking with a cleared host.
+
+On macOS, the helper also checks the exact overlay CGWindowID and owner PID in the window server's on-screen list. `main/platform/visibility.ts` uses this observation to repair disagreement with Electron's `isVisible()` by hiding and ordering the panel in again, at most once per second. It preserves full-screen/Spaces participation and never calls `focus()` or `show()`. An unrelated, closed or minimized Codex host always hides the overlay. Windows retains its focusable native window and nonactivating initial display.
+
+No screenshots, window-title parsing, chat text or Accessibility APIs are used. The native regression test operates on a separate offline test panel and substitutes the Electron visible flag; it does not control the user's Codex or use account credentials.
 
 ## External dependencies
 

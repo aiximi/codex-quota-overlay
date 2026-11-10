@@ -16,6 +16,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { Store } from '../core/storage';
 import { QuotaApplication } from './application';
 import { WindowTracker, type Frame } from './platform/tracker';
+import { OverlayVisibility, overlayWindowId } from './platform/visibility';
 import { DEFAULT_SETTINGS } from './settings';
 
 const preview = process.argv.includes('--preview') || process.argv.includes('--smoke-test');
@@ -35,6 +36,7 @@ let positionSaveTimer: ReturnType<typeof setTimeout> | undefined;
 let positionSavePending = false;
 let ready = false;
 let lastBroadcast = '';
+const visibility = new OverlayVisibility(process.platform === 'darwin');
 const projectURL = 'https://github.com/aiximi/codex-quota-overlay';
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -104,7 +106,10 @@ function createOverlay(): BrowserWindow {
   });
   protect(window);
   if (process.platform === 'darwin')
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    window.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: true,
+    });
   window.on('ready-to-show', () => {
     ready = true;
     render();
@@ -149,7 +154,7 @@ function render(): void {
   if (!ready) return;
   const anchor = preview ? screen.getPrimaryDisplay().workArea : host?.bounds;
   if (!anchor) {
-    overlay.hide();
+    visibility.update(overlay, false);
     return;
   }
   const display = screen.getDisplayMatching(anchor).workArea;
@@ -160,7 +165,7 @@ function render(): void {
   const width = Math.min(quota.state.expanded ? 328 : 276, right - left - 16);
   const height = Math.min(quota.state.expanded ? 560 : 42, bottom - top - 16);
   if (width < 180 || height < 42) {
-    overlay.hide();
+    visibility.update(overlay, false);
     return;
   }
   const offset = quota.state.settings.offset;
@@ -182,7 +187,20 @@ function render(): void {
     )
   )
     overlay.setBounds(bounds);
-  if (!overlay.isVisible()) overlay.showInactive();
+  visibility.update(overlay, true, host?.overlayVisible);
+}
+
+function restartTracking(): void {
+  // Clear the old host before showing anything after resume or a manual repair.
+  // The helper must confirm that Codex is still the active, visible application.
+  tracker?.stop();
+  tracker?.start();
+}
+
+function restoreOverlay(): void {
+  quota.saveOffset(DEFAULT_SETTINGS.offset.x, DEFAULT_SETTINGS.offset.y);
+  restartTracking();
+  quota.publish();
 }
 
 function openSettings(): void {
@@ -249,10 +267,7 @@ function registerIPC(): void {
     updateMenu();
   });
   handle('quota:subscription', (value) => quota.setManualSubscription(value));
-  handle('quota:position', () => {
-    quota.saveOffset(DEFAULT_SETTINGS.offset.x, DEFAULT_SETTINGS.offset.y);
-    quota.publish();
-  });
+  handle('quota:position', restoreOverlay);
   handle('quota:project', () => shell.openExternal(projectURL));
   handle('quota:quit', () => app.quit());
 }
@@ -284,10 +299,7 @@ function updateMenu(): void {
       { label: quota.text('立即刷新', 'Refresh now'), click: () => void quota.refresh(true) },
       {
         label: quota.text('恢复浮层位置', 'Reset overlay position'),
-        click: () => {
-          quota.saveOffset(16, 64);
-          quota.publish();
-        },
+        click: restoreOverlay,
       },
       { type: 'separator' },
       { label: 'GitHub', click: () => void shell.openExternal(projectURL) },
@@ -339,10 +351,12 @@ async function start(): Promise<void> {
         quota.state.trackerError = error || null;
         quota.publish();
       },
+      process.platform === 'darwin' ? overlayWindowId(overlay.getMediaSourceId()) : undefined,
     );
     tracker.start();
   }
   const resume = () => {
+    restartTracking();
     quota.resume();
     void quota.tick(!!host);
   };

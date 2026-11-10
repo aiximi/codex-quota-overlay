@@ -9,6 +9,8 @@ export interface WindowBounds {
 export interface Frame {
   bounds: WindowBounds;
   appPath?: string;
+  /** macOS window-server observation of this exact overlay, not the settings window. */
+  overlayVisible?: boolean;
 }
 
 export type HelperFrame = { visible: false } | ({ visible: true } & Frame);
@@ -36,6 +38,8 @@ export function parseHelperFrame(line: string): HelperFrame | undefined {
   }
   if ((bounds.width as number) <= 0 || (bounds.height as number) <= 0) return undefined;
   const appPath = value.appPath;
+  if (value.overlayVisible !== undefined && typeof value.overlayVisible !== 'boolean')
+    return undefined;
   if (
     appPath !== undefined &&
     (typeof appPath !== 'string' ||
@@ -54,5 +58,6 @@ export function parseHelperFrame(line: string): HelperFrame | undefined {
       height: bounds.height as number,
     },
     ...(typeof appPath === 'string' ? { appPath } : {}),
+    ...(typeof value.overlayVisible === 'boolean' ? { overlayVisible: value.overlayVisible } : {}),
   };
 }

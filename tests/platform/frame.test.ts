@@ -11,6 +11,7 @@ test('preserves top-left global coordinates, including a monitor left of primary
     visible: true,
     bounds: { x: -1920, y: 20, width: 1200, height: 900 },
     appPath: '/Applications/Codex.app',
+    overlayVisible: false,
   };
   assert.deepEqual(parseHelperFrame(JSON.stringify(frame)), frame);
 });
@@ -24,6 +25,12 @@ test('rejects malformed payloads instead of retaining stale geometry', () => {
     '{"visible":true,"bounds":{"x":0,"y":0,"width":-1,"height":400}}',
     '{"visible":true,"bounds":{"x":1e100,"y":0,"width":500,"height":400}}',
     '{"visible":true,"bounds":{"x":0,"y":0,"width":500,"height":400},"appPath":42}',
+    '{"visible":true,"bounds":{"x":0,"y":0,"width":500,"height":400},"overlayVisible":"false"}',
   ])
     assert.equal(parseHelperFrame(line), undefined);
+});
+
+test('older and Windows helpers remain valid without native overlay feedback', () => {
+  const frame = { visible: true, bounds: { x: 0, y: 0, width: 1200, height: 800 } };
+  assert.deepEqual(parseHelperFrame(JSON.stringify(frame)), frame);
 });

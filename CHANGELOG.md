@@ -5,6 +5,23 @@
 - Put downloads immediately after the project introduction, with a generated latest-per-platform block in both READMEs.
 - Add a unified download center, complete version history, and detailed notes for each published release. Keep Windows and macOS release versions explicit.
 
+## 2.1.1 · 2026-11-11
+
+[Release details / 版本详情](docs/releases/v2.1.1.md) · [Published packages](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.1.1)
+
+- Repair macOS panels missing from the current desktop using exact native window visibility instead of Electron's visible flag alone, without taking focus.
+- Restart tracking after wake/unlock and position restore, with fresh foreground validation.
+- Keep helper recovery active with capped backoff after repeated failures on both platforms.
+- Add a real macOS window-server regression and helper lifecycle coverage; preserve settings, reset receipts and the existing quota protocol.
+
+## 2.1.0 · 2026-11-06
+
+[Release details / 版本详情](docs/releases/v2.1.0.md) · [Published packages](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.1.0)
+
+- Unify macOS and Windows releases with foreground official-data refresh, account checks and explicit stale/unknown states.
+- Fetch subscription dates independently of quota, preserve official/manual source labels, and request complete reset details with read-only legacy fallback.
+- Preserve Windows 2.0.1 interaction, tracking and installation fixes.
+
 ## 2.0.1 — Windows · 2026-10-12
 
 [Release details / 版本详情](docs/releases/windows-v2.0.1.md) · [Published packages](https://github.com/aiximi/codex-quota-overlay/releases/tag/windows-v2.0.1)

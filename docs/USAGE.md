@@ -8,7 +8,7 @@
 
 ## 下载
 
-从本项目 [下载中心](../DOWNLOADS.md) 选择对应系统的最新版本，历史安装包和每次变化见 [版本历史](VERSIONS.md)。各平台独立发布：Windows 2.0.1 是 Windows 专用修复版，macOS 仍使用 2.0.0，不需要寻找 macOS 2.0.1。
+从本项目 [下载中心](../DOWNLOADS.md) 选择对应系统的最新版本，历史安装包和每次变化见 [版本历史](VERSIONS.md)。自 2.1.0 起再次同时发布 macOS 与 Windows 版本；历史上的 Windows 2.0.1 是单平台修复版。以下载中心的各系统最新入口为准。
 
 macOS 在“关于本机”查看芯片类型，选择 Apple Silicon 或 Intel；Windows 下载 x64 安装版或便携版。下载中心链接均指向本仓库的 GitHub 发布文件。
 
@@ -73,20 +73,26 @@ Get-FileHash .\Codex-Quota-Overlay-2.0.1-windows-x64-setup.exe -Algorithm SHA256
 
 ## 常见问题
 
-| 情况                     | 处理                                                                                                                           |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| 看不到浮层               | 确认正在使用官方 Codex 且窗口不是最小化；托盘 → 恢复位置；重启浮层。                                                           |
-| 找不到 CLI               | Windows 优先清空设置中的旧 CLI 路径以自动查找；手动选择时须用可执行的原生 `codex` / `codex.exe`，不要选 `.cmd` 或 shell 脚本。 |
-| 提示先登录               | 确认 ChatGPT 登录信息存储于 `~/.codex/auth.json` 或 `CODEX_HOME` 对应目录；不支持 API key 方式。                               |
-| 订阅日期未获取           | 此接口可能不可用，在设置中按账单填写日期。                                                                                     |
-| 重置按钮灰色             | 等待同步；检查机会是否到期、已处理，或有上次结果待确认。预览模式始终禁用。                                                     |
-| 网络失败                 | 保留上次用量并标记错误。检查现有系统代理和网络，稍后手动刷新。                                                                 |
-| Windows helper 启动失败  | 检查是否被组织脚本策略限制。helper 的进程级策略不修改系统策略，也不覆盖组织策略。                                              |
-| Windows 没有出现目录选择 | 先确认下载的是 `setup.exe`；SmartScreen 提示在安装向导之前，`portable.exe` 没有目录选择页。                                    |
-| Windows 安装目录不可写   | 在向导中浏览到当前账号有写权限的目录，例如 `D:\Apps\Codex Quota Overlay`。                                                     |
-| Codex 更新后无法使用     | 报告应用和系统版本，附重现步骤；不要上传 token、auth.json 或私人日志。                                                         |
+| 情况                     | 处理                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 看不到浮层               | 确认浮层应用已启动、官方 Codex 位于前台且未最小化。2.1.1 起会自动修复 macOS 窗口可见性；仍不可见时，菜单栏/托盘 → 恢复浮层位置会重启跟随。 |
+| 找不到 CLI               | Windows 优先清空设置中的旧 CLI 路径以自动查找；手动选择时须用可执行的原生 `codex` / `codex.exe`，不要选 `.cmd` 或 shell 脚本。             |
+| 提示先登录               | 确认 ChatGPT 登录信息存储于 `~/.codex/auth.json` 或 `CODEX_HOME` 对应目录；不支持 API key 方式。                                           |
+| 订阅日期未获取           | 此接口可能不可用，在设置中按账单填写日期。                                                                                                 |
+| 重置按钮灰色             | 等待同步；检查机会是否到期、已处理，或有上次结果待确认。预览模式始终禁用。                                                                 |
+| 网络失败                 | 保留上次用量并标记错误。检查现有系统代理和网络，稍后手动刷新。                                                                             |
+| Windows helper 启动失败  | 检查是否被组织脚本策略限制。helper 的进程级策略不修改系统策略，也不覆盖组织策略。                                                          |
+| Windows 没有出现目录选择 | 先确认下载的是 `setup.exe`；SmartScreen 提示在安装向导之前，`portable.exe` 没有目录选择页。                                                |
+| Windows 安装目录不可写   | 在向导中浏览到当前账号有写权限的目录，例如 `D:\Apps\Codex Quota Overlay`。                                                                 |
+| Codex 更新后无法使用     | 报告应用和系统版本，附重现步骤；不要上传 token、auth.json 或私人日志。                                                                     |
 
 ## 更新与卸载
+
+### 2.1.1：浮窗可见性与自动恢复
+
+macOS 除了检测 Codex 在前台，还核对浮窗是否真的出现在当前桌面；异常时重新显示且不抢焦点。唤醒、解锁和“恢复浮层位置”会重新建立窗口跟随。macOS 与 Windows 的跟随助手失败后持续退避重试，最长间隔 30 秒，不再累计失败后永久停止。详见 [2.1.1 更新说明](releases/v2.1.1.md)。
+
+切换其他应用或最小化 Codex 时隐藏属于正常行为，不会为了恢复而让浮窗一直覆盖其他应用。升级保留设置和重置操作记录。
 
 ### 2.1.0：统一官方数据同步
 
@@ -120,6 +126,8 @@ Install official Codex and sign in with a supported ChatGPT file-based login. Se
 Each Reset button selects one credit and opens a confirmation whose default is Cancel. The app never automatically redeems credits. Network uncertainty retains the operation ID; retry the same item after reviewing refreshed data. Preview is fully offline and cannot redeem a real credit.
 
 Foreground quota refresh defaults to 15 seconds. Returning to Codex or waking the system triggers another read; failed or stale data is labelled. The app polls official services and cannot guarantee zero latency. Official subscription dates take precedence over labelled cached/manual references; a manual entry never replaces a confirmed official date.
+
+Version 2.1.1 repairs macOS panels that are missing from the current desktop, restarts tracking on wake/unlock, and retries failed helpers with capped backoff on both platforms. **Reset overlay position** also restarts tracking. The overlay still hides when Codex is not the active visible application. See the [2.1.1 release notes](releases/v2.1.1.md).
 
 **Windows 2.0.1 was a Windows-only patch; 2.1.0 resumes a shared macOS and Windows release.** It fixes native mouse/keyboard input, Codex window tracking during overlay interaction, managed CLI discovery, and the Windows quota request. Usage can now appear before the optional subscription lookup completes. See the [release details](releases/windows-v2.0.1.md).
 

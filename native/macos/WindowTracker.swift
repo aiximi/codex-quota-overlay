@@ -15,12 +15,23 @@ struct Frame: Encodable, Equatable {
     let visible: Bool
     var bounds: Bounds? = nil
     var appPath: String? = nil
+    var overlayVisible: Bool? = nil
+}
+
+func isOverlayOnScreen(_ windows: [[String: Any]], windowID: CGWindowID, ownerPID: pid_t) -> Bool {
+    return windows.contains { window in
+        (window[kCGWindowNumber as String] as? NSNumber)?.uint32Value == windowID &&
+        (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == ownerPID &&
+        (window[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true &&
+        ((window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.01
+    }
 }
 
 final class WindowObserver {
     private var lastFrame: Frame?
     private var lastEmission = Date.distantPast
     private let originalParent = getppid()
+    private let overlayID = CommandLine.arguments.dropFirst().first.flatMap(UInt32.init)
 
     func poll() {
         // Do not leave an orphan helper running after the Electron host exits.
@@ -61,7 +72,10 @@ final class WindowObserver {
             return Frame(
                 visible: true,
                 bounds: Bounds(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height),
-                appPath: app.bundleURL?.path
+                appPath: app.bundleURL?.path,
+                overlayVisible: overlayID.map {
+                    isOverlayOnScreen(windows, windowID: $0, ownerPID: originalParent)
+                }
             )
         }
         return Frame(visible: false)

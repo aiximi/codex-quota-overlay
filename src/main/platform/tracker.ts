@@ -5,7 +5,7 @@ import { parseHelperFrame, type Frame } from './frame.js';
 
 export type { Frame } from './frame.js';
 
-/** A bounded, supervised bridge to the platform's geometry-only helper. */
+/** Supervised geometry-only helper, with capped backoff rather than permanent failure. */
 export class WindowTracker {
   private child: ChildProcessWithoutNullStreams | null = null;
   private stopped = true;
@@ -13,6 +13,7 @@ export class WindowTracker {
   private lastHeartbeat = 0;
   private receivedHeartbeat = false;
   private reportedError = false;
+  private healthySince = 0;
   private watchdog: ReturnType<typeof setInterval> | undefined;
   private retryTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -20,6 +21,7 @@ export class WindowTracker {
     private readonly resourceRoot: string,
     private readonly onFrame: (frame: Frame | null) => void,
     private readonly onError: (message: string) => void,
+    private readonly overlayWindowId?: number,
   ) {}
 
   start(): void {
@@ -57,7 +59,7 @@ export class WindowTracker {
     let args: string[];
     if (process.platform === 'darwin') {
       command = path.join(this.resourceRoot, 'native', 'macos', 'window-tracker');
-      args = [];
+      args = this.overlayWindowId === undefined ? [] : [String(this.overlayWindowId)];
     } else if (process.platform === 'win32') {
       command = path.join(
         process.env.SystemRoot ?? 'C:\\Windows',
@@ -89,6 +91,7 @@ export class WindowTracker {
     this.child = child;
     this.lastHeartbeat = Date.now();
     this.receivedHeartbeat = false;
+    this.healthySince = 0;
     let buffered = '';
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (chunk: string) => {
@@ -109,6 +112,8 @@ export class WindowTracker {
           return;
         }
         this.lastHeartbeat = Date.now();
+        if (!this.healthySince) this.healthySince = this.lastHeartbeat;
+        if (this.lastHeartbeat - this.healthySince >= 10_000) this.failures = 0;
         this.receivedHeartbeat = true;
         if (this.reportedError) {
           this.reportedError = false;
@@ -123,7 +128,13 @@ export class WindowTracker {
             process.platform === 'win32'
               ? screen.screenToDipRect(null, message.bounds)
               : message.bounds;
-          this.onFrame({ bounds, ...(message.appPath ? { appPath: message.appPath } : {}) });
+          this.onFrame({
+            bounds,
+            ...(message.appPath ? { appPath: message.appPath } : {}),
+            ...(message.overlayVisible !== undefined
+              ? { overlayVisible: message.overlayVisible }
+              : {}),
+          });
         } catch {
           this.onFrame(null);
         }
@@ -146,8 +157,7 @@ export class WindowTracker {
     this.onFrame(null);
     this.reportedError = true;
     this.onError(message);
-    if (this.failures >= 3) return;
-    const delay = 500 * 2 ** this.failures++;
+    const delay = Math.min(30_000, 500 * 2 ** Math.min(this.failures++, 6));
     this.retryTimer = setTimeout(() => this.launch(), delay);
     this.retryTimer.unref();
   }
