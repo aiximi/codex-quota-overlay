@@ -38,7 +38,9 @@ test('tracker recovers after repeated failures, resets backoff after health, and
   const require = createRequire(import.meta.url);
   const children: Array<EventEmitter & { stdout: PassThrough; stderr: PassThrough; kill(): void }> =
     [];
-  t.mock.method(require('node:child_process'), 'spawn', () => {
+  const argumentsUsed: string[][] = [];
+  t.mock.method(require('node:child_process'), 'spawn', (_command: string, args: string[]) => {
+    argumentsUsed.push(args);
     const child = Object.assign(new EventEmitter(), {
       stdout: new PassThrough(),
       stderr: new PassThrough(),
@@ -77,9 +79,19 @@ test('tracker recovers after repeated failures, resets backoff after health, and
     children.at(-1)!.emit('exit', 1);
     t.mock.timers.tick(500);
     assert.equal(children.length, count + 1, 'a healthy helper resets the backoff');
+    const oldChild = children.at(-1)!;
+    tracker.replaceOverlayWindow(456);
+    assert.equal(children.length, count + 2, 'a new native surface restarts its tracker');
+    assert.equal(frames.at(-1), null);
+    if (process.platform === 'darwin') assert.deepEqual(argumentsUsed.at(-1), ['456']);
+    oldChild.stdout.emit('data', JSON.stringify({ visible: true, ...frame }) + '\n');
+    assert.equal(frames.at(-1), null, 'old helper messages cannot revive the old surface');
+    children.at(-1)!.stdout.emit('data', JSON.stringify({ visible: true, ...frame }) + '\n');
+    assert.deepEqual(frames.at(-1), frame);
     tracker.stop();
+    tracker.replaceOverlayWindow(789);
     t.mock.timers.tick(60_000);
-    assert.equal(children.length, count + 1);
+    assert.equal(children.length, count + 2, 'replacing a stopped tracker does not start it');
     assert.equal(frames.at(-1), null);
   } finally {
     tracker.stop();

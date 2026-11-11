@@ -18,12 +18,32 @@ struct Frame: Encodable, Equatable {
     var overlayVisible: Bool? = nil
 }
 
-func isOverlayOnScreen(_ windows: [[String: Any]], windowID: CGWindowID, ownerPID: pid_t) -> Bool {
+func activeDisplayBounds() -> [CGRect] {
+    var count: UInt32 = 0
+    guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else { return [] }
+    var displays = [CGDirectDisplayID](repeating: 0, count: Int(count))
+    guard CGGetActiveDisplayList(count, &displays, &count) == .success else { return [] }
+    return displays.prefix(Int(count)).map(CGDisplayBounds)
+}
+
+func isOverlayOnScreen(_ windows: [[String: Any]], windowID: CGWindowID, ownerPID: pid_t,
+                       visibleRegions: [CGRect] = activeDisplayBounds()) -> Bool {
     return windows.contains { window in
-        (window[kCGWindowNumber as String] as? NSNumber)?.uint32Value == windowID &&
-        (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == ownerPID &&
-        (window[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true &&
-        ((window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.01
+        guard (window[kCGWindowNumber as String] as? NSNumber)?.uint32Value == windowID,
+              (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == ownerPID,
+              (window[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true,
+              ((window[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? 1) > 0.01,
+              let values = window[kCGWindowBounds as String] as? [String: Any],
+              let rect = CGRect(dictionaryRepresentation: values as CFDictionary),
+              rect.minX.isFinite, rect.minY.isFinite,
+              rect.width.isFinite, rect.height.isFinite,
+              rect.width > 0, rect.height > 0 else { return false }
+        // During a Spaces transition, WindowServer can report "onscreen" for
+        // a surface translated outside every physical display. A narrow visible
+        // sliver is not a usable overlay either. Allow only rounding tolerance.
+        return visibleRegions.contains { region in
+            !region.isNull && !region.isEmpty && region.insetBy(dx: -2, dy: -2).contains(rect)
+        }
     }
 }
 
@@ -145,9 +165,12 @@ final class WindowObserver {
         var frame = selection.frame(front: front, parentPID: originalParent, windows: windows) { pid in
             NSRunningApplication(processIdentifier: pid).map(ApplicationSnapshot.init)
         }
-        if frame.visible {
+        if frame.visible, let bounds = frame.bounds {
+            let hostRect = CGRect(x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height)
+            let visibleRegions = activeDisplayBounds().map { $0.intersection(hostRect) }
             frame.overlayVisible = overlayID.map {
-                isOverlayOnScreen(windows, windowID: $0, ownerPID: originalParent)
+                isOverlayOnScreen(windows, windowID: $0, ownerPID: originalParent,
+                                  visibleRegions: visibleRegions)
             }
         }
         return frame

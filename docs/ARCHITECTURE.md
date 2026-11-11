@@ -42,6 +42,10 @@ On macOS, the helper also checks the exact overlay CGWindowID and owner PID in t
 
 No screenshots, window-title parsing, chat text or Accessibility APIs are used. The native regression test operates on a separate offline test panel and substitutes the Electron visible flag; it does not control the user's Codex or use account credentials.
 
+The macOS onscreen flag alone is insufficient during Space animations: the compositor can translate the surface outside physical displays while Electron still reports the desired bounds. Native visibility requires full containment within a Codex/display intersection (2 px tolerance). Recovery reapplies the desired bounds even if cached bounds match. Main passes this native status only for the current tracker message; quota/UI renders cannot replay a previous failed observation.
+
+If fresh native observations continue to confirm absence for five seconds, main recreates the panel and rebinds the tracker to its new CGWindowID. Application data, expanded state and settings remain in the existing application instance. A 30-second cooldown survives tracker resets. Background transitions or confirmed visibility clear the failure interval; UI-only renders cannot trigger recreation.
+
 On macOS, `HostSelection` remembers the verified Codex PID, launch date and exact window ID when Codex is foreground. When this overlay's own parent process takes foreground, it revalidates that host and continues following it. An unrelated application or missing/hidden host clears the association. Settings opened without a prior host cannot create one. A separate test executes this production Swift selection policy with synthetic application and window observations, covering the tracking behavior that preview mode disables.
 
 ## External dependencies

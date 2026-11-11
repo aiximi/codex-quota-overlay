@@ -5,6 +5,15 @@
 - Put downloads immediately after the project introduction, with a generated latest-per-platform block in both READMEs.
 - Add a unified download center, complete version history, and detailed notes for each published release. Keep Windows and macOS release versions explicit.
 
+## 2.1.3 · 2026-11-11
+
+[Release details / 版本详情](docs/releases/v2.1.3.md) · [Published packages](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.1.3)
+
+- Validate actual macOS panel geometry inside the visible Codex/display region during desktop and full-screen Space changes.
+- Reapply intended placement on recovery even if cached Electron bounds already match; reject clipped and off-display surfaces.
+- Recreate a persistently unavailable native panel after five seconds of confirmed failure, preserve UI state, and rebind its new window ID with a 30-second recreation cooldown.
+- Consume fresh native visibility observations without replaying them during quota or UI updates. Preserve foreground-only following and existing click behavior.
+
 ## 2.1.2 · 2026-11-11
 
 [Release details / 版本详情](docs/releases/v2.1.2.md) · [Published packages](https://github.com/aiximi/codex-quota-overlay/releases/tag/v2.1.2)

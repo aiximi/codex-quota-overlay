@@ -141,7 +141,7 @@ function createOverlay(): BrowserWindow {
   return window;
 }
 
-function render(): void {
+function render(nativeVisible?: boolean): void {
   if (!quota || !overlay || overlay.isDestroyed()) return;
   const serialized = JSON.stringify(quota.state);
   if (serialized !== lastBroadcast) {
@@ -187,7 +187,20 @@ function render(): void {
     )
   )
     overlay.setBounds(bounds);
-  visibility.update(overlay, true, host?.overlayVisible);
+  // Use native visibility only on its fresh tracker heartbeat. A quota/UI
+  // update must not replay an old off-screen observation after recovery.
+  visibility.update(overlay, true, nativeVisible, Date.now(), bounds, recreateOverlay);
+}
+
+function recreateOverlay(): void {
+  if (quitting || !overlay || overlay.isDestroyed()) return;
+  const previous = overlay;
+  ready = false;
+  overlay = createOverlay();
+  previous.destroy();
+  // A new native surface has a new CGWindowID. Clear stale tracking and make
+  // the helper validate the foreground again; quota/settings stay in memory.
+  tracker?.replaceOverlayWindow(overlayWindowId(overlay.getMediaSourceId()));
 }
 
 function restartTracking(): void {
@@ -344,7 +357,7 @@ async function start(): Promise<void> {
       (frame) => {
         host = frame;
         if (frame?.appPath) quota.appPath = frame.appPath;
-        render();
+        render(frame?.overlayVisible);
         void quota.tick(!!frame);
       },
       (error) => {

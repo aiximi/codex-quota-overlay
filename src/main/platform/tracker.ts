@@ -21,8 +21,15 @@ export class WindowTracker {
     private readonly resourceRoot: string,
     private readonly onFrame: (frame: Frame | null) => void,
     private readonly onError: (message: string) => void,
-    private readonly overlayWindowId?: number,
+    private overlayWindowId?: number,
   ) {}
+
+  replaceOverlayWindow(windowId: number | undefined): void {
+    const wasRunning = !this.stopped;
+    this.stop();
+    this.overlayWindowId = windowId;
+    if (wasRunning) this.start();
+  }
 
   start(): void {
     if (!this.stopped) return;
